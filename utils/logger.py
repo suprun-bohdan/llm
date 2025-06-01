@@ -6,6 +6,7 @@ import time
 from typing import Optional, Dict, Any
 from torch.utils.tensorboard import SummaryWriter
 import torch
+import logging
 
 
 class Logger:
@@ -80,3 +81,43 @@ class Logger:
     def close(self) -> None:
         """Close logger."""
         self.writer.close()
+
+def setup_logger(
+    name: str,
+    log_dir: str,
+    log_file: Optional[str] = None,
+    level: int = logging.INFO
+) -> logging.Logger:
+    """
+    Налаштування логера.
+    
+    Args:
+        name: Назва логера
+        log_dir: Директорія для логів
+        log_file: Назва файлу логу (опціонально)
+        level: Рівень логування
+        
+    Returns:
+        Налаштований логер
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    if log_file:
+        os.makedirs(log_dir, exist_ok=True)
+        file_handler = logging.FileHandler(
+            os.path.join(log_dir, log_file),
+            encoding='utf-8'
+        )
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+    
+    return logger

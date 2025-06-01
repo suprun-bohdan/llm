@@ -15,6 +15,9 @@ student:
   lora_rank: 8
   distill_alpha: 0.5
   temperature: 2.0
+  ffn_rank: 2048
+  gradient_checkpointing: true
+  mixed_precision: true
 
 # Hypernetwork configuration
 use_hypernet: true
@@ -59,8 +62,8 @@ rag:
   nbits: 8
 
 # Dataset paths
-train_dataset: "data/train.jsonl"
-eval_dataset: "data/eval.jsonl"
+train_dataset: "data/my_dataset_clean.jsonl"
+eval_dataset: "data/my_dataset_clean.jsonl"
 
 # Output configuration
 output_dir: "outputs/advanced"

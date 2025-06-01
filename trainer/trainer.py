@@ -8,12 +8,13 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import DataLoader
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple, List, Any
 from tqdm import tqdm
 import numpy as np
 from model.transformer import TransformerModel
 from tokenizer.simple_tokenizer import SimpleTokenizer
 from utils.logger import setup_logger
+import json
 
 
 class Trainer:
@@ -21,14 +22,14 @@ class Trainer:
 
     def __init__(
         self,
-        model: TransformerModel,
-        tokenizer: SimpleTokenizer,
+        model: nn.Module,
+        tokenizer: Any,
         train_dataloader: DataLoader,
         val_dataloader: Optional[DataLoader] = None,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
-        learning_rate: float = 1e-4,
+        learning_rate: float = 5e-5,
         weight_decay: float = 0.01,
-        warmup_steps: int = 1000,
+        warmup_steps: int = 0,
         max_grad_norm: float = 1.0,
         checkpoint_dir: str = "checkpoints",
         log_dir: str = "logs",
@@ -62,22 +63,9 @@ class Trainer:
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
         self.device = device
-        
-        self.optimizer = AdamW(
-            model.parameters(),
-            lr=learning_rate,
-            weight_decay=weight_decay
-        )
-        
-        total_steps = len(train_dataloader) * max_epochs
-        self.scheduler = CosineAnnealingLR(
-            self.optimizer,
-            T_max=total_steps,
-            eta_min=learning_rate * 0.1
-        )
-        
-        self.criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.token_to_id["<pad>"])
-        
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.warmup_steps = warmup_steps
         self.max_grad_norm = max_grad_norm
         self.checkpoint_dir = checkpoint_dir
         self.log_dir = log_dir
@@ -86,19 +74,30 @@ class Trainer:
         self.max_epochs = max_epochs
         self.early_stopping_patience = early_stopping_patience
         
-        os.makedirs(checkpoint_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
-        
         self.logger = setup_logger(
             name="trainer",
             log_dir=log_dir,
-            log_file="train.log"
+            log_file="trainer.log"
         )
         
+        self.optimizer = AdamW(
+            self.model.parameters(),
+            lr=learning_rate,
+            weight_decay=weight_decay
+        )
+        
+        self.scheduler = CosineAnnealingLR(
+            self.optimizer,
+            T_max=max_epochs * len(train_dataloader),
+            eta_min=learning_rate * 0.1
+        )
+        
+        self.criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.token_to_id["<pad>"])
+        
         self.best_val_loss = float("inf")
-        self.epoch = 0
-        self.step = 0
         self.patience_counter = 0
+        
+        os.makedirs(checkpoint_dir, exist_ok=True)
         
         self.history = {
             "train_loss": [],
@@ -163,13 +162,13 @@ class Trainer:
                 
                 if val_loss < self.best_val_loss:
                     self.best_val_loss = val_loss
-                    self.save_checkpoint("best_model.pt")
+                    self.save_checkpoint(epoch=self.epoch, loss=val_loss, is_best=True)
                     self.patience_counter = 0
                 else:
                     self.patience_counter += 1
             
             if self.step % self.save_every == 0:
-                self.save_checkpoint(f"checkpoint_{self.step}.pt")
+                self.save_checkpoint(epoch=self.epoch, loss=loss.item(), is_best=False)
         
         avg_loss = total_loss / num_batches
         self.history["train_loss"].append(avg_loss)
@@ -212,7 +211,7 @@ class Trainer:
         
         return avg_loss
 
-    def train(self) -> Dict[str, List[float]]:
+    def train(self) -> Dict[str, Any]:
         """
         Train model.
 
@@ -255,47 +254,48 @@ class Trainer:
             
             return self.history
 
-    def save_checkpoint(self, filename: str) -> None:
+    def save_checkpoint(self, epoch: int, loss: float, is_best: bool = False):
         """
         Save checkpoint.
 
         Args:
-            filename: Checkpoint filename
+            epoch: Current epoch
+            loss: Current epoch loss
+            is_best: Whether this is the best checkpoint
         """
         checkpoint = {
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "scheduler_state_dict": self.scheduler.state_dict(),
-            "epoch": self.epoch,
-            "step": self.step,
-            "best_val_loss": self.best_val_loss,
-            "history": self.history
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict(),
+            'loss': loss
         }
         
-        path = os.path.join(self.checkpoint_dir, filename)
-        torch.save(checkpoint, path)
-        self.logger.info(f"Saved checkpoint to {path}")
+        checkpoint_path = os.path.join(
+            self.checkpoint_dir,
+            f'checkpoint_epoch_{epoch}.pt'
+        )
+        torch.save(checkpoint, checkpoint_path)
+        
+        if is_best:
+            best_path = os.path.join(self.checkpoint_dir, 'best_model.pt')
+            torch.save(checkpoint, best_path)
 
-    def load_checkpoint(self, filename: str) -> None:
+    def load_checkpoint(self, checkpoint_path: str):
         """
         Load checkpoint.
 
         Args:
-            filename: Checkpoint filename
+            checkpoint_path: Path to checkpoint
+
+        Returns:
+            Epoch number and loss from checkpoint
         """
-        path = os.path.join(self.checkpoint_dir, filename)
-        checkpoint = torch.load(path, map_location=self.device)
-        
-        self.model.load_state_dict(checkpoint["model_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-        
-        self.epoch = checkpoint["epoch"]
-        self.step = checkpoint["step"]
-        self.best_val_loss = checkpoint["best_val_loss"]
-        self.history = checkpoint["history"]
-        
-        self.logger.info(f"Loaded checkpoint from {path}")
+        checkpoint = torch.load(checkpoint_path)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        return checkpoint['epoch'], checkpoint['loss']
 
     def generate_text(
         self,

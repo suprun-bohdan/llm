@@ -7,6 +7,9 @@ import random
 import numpy as np
 import torch
 from typing import List, Dict, Any, Optional, Tuple
+import logging
+import sys
+from pathlib import Path
 
 
 def set_seed(seed: int) -> None:
@@ -128,16 +131,55 @@ def compute_perplexity(
     return torch.exp(loss.mean()).item()
 
 
-def get_device() -> torch.device:
+def setup_logging(verbose: bool = False, log_file: Optional[str] = None) -> None:
+    """Setup logging configuration.
+    
+    Args:
+        verbose: Whether to enable debug logging
+        log_file: Optional path to log file
     """
-    Get device.
+    log_level = logging.DEBUG if verbose else logging.INFO
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    
+    # Setup root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+    
+    # Clear existing handlers
+    root_logger.handlers = []
+    
+    # Add console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+    
+    # Add file handler if log_file specified
+    if log_file:
+        log_path = Path(log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)
 
+
+def get_device(device: str = "cuda") -> torch.device:
+    """Get torch device.
+    
+    Args:
+        device: Device string ("cuda", "cpu", etc)
+        
     Returns:
-        Device
+        torch.device: Device to use
     """
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    return torch.device("cpu")
+    if device == "cuda" and not torch.cuda.is_available():
+        logging.warning("CUDA requested but not available, falling back to CPU")
+        return torch.device("cpu")
+    return torch.device(device)
 
 
 def count_parameters(model: torch.nn.Module) -> int:

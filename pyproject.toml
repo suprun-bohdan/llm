@@ -41,7 +41,7 @@ disallow_incomplete_defs = false
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --cov=model --cov-report=term-missing"
+addopts = "-ra -q"
 testpaths = [
     "tests",
 ]

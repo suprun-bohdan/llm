@@ -1,0 +1,33 @@
+{
+    "model": {
+        "vocab_size": 32000,
+        "d_model": 768,
+        "n_layers": 6,
+        "n_heads": 12,
+        "d_ff": 3072,
+        "dropout": 0.1,
+        "lora_rank": 8,
+        "distill_alpha": 0.5,
+        "use_lora": true,
+        "ffn_rank": 3072,
+        "gradient_checkpointing": true,
+        "mixed_precision": true,
+        "max_seq_len": 512,
+        "activation": "gelu",
+        "distill_temperature": 2.0
+    },
+    "training": {
+        "batch_size": 32,
+        "num_workers": 4,
+        "learning_rate": 5e-5,
+        "min_learning_rate": 1e-6,
+        "weight_decay": 0.01,
+        "num_epochs": 10,
+        "warmup_steps": 1000,
+        "max_grad_norm": 1.0,
+        "device": "cuda"
+    },
+    "tokenizer": {
+        "name": "gpt2"
+    }
+} 

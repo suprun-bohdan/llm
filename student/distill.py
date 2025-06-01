@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional, Dict, Any, Tuple
 from student.model_student import StudentModel
+from student.DistillationLoss import DistillationLoss
 
 
 class DistillationTrainer:
@@ -104,7 +105,12 @@ class DistillationTrainer:
         
         # Get teacher predictions
         with torch.no_grad():
-            teacher_logits = self.teacher(input_ids, attention_mask)
+            # Перетворюємо формат для моделі-вчителя
+            teacher_input = self.student.embed_tokens(input_ids) + self.student.pos_embed(
+                torch.arange(0, input_ids.size(1), device=input_ids.device).unsqueeze(0).repeat(input_ids.size(0), 1)
+            )
+            teacher_logits = self.teacher(teacher_input, src_key_padding_mask=attention_mask == 0)
+            teacher_logits = self.student.output_proj(teacher_logits)  # (batch_size, seq_len, vocab_size)
         
         # Compute loss
         loss, loss_components = self.compute_loss(student_logits, teacher_logits, labels)
@@ -141,7 +147,13 @@ class DistillationTrainer:
                 
                 # Get predictions
                 student_logits = self.student(input_ids, attention_mask)
-                teacher_logits = self.teacher(input_ids, attention_mask)
+                
+                # Перетворюємо формат для моделі-вчителя
+                teacher_input = self.student.embed_tokens(input_ids) + self.student.pos_embed(
+                    torch.arange(0, input_ids.size(1), device=input_ids.device).unsqueeze(0).repeat(input_ids.size(0), 1)
+                )
+                teacher_logits = self.teacher(teacher_input, src_key_padding_mask=attention_mask == 0)
+                teacher_logits = self.student.output_proj(teacher_logits)  # (batch_size, seq_len, vocab_size)
                 
                 # Compute loss
                 loss, _ = self.compute_loss(student_logits, teacher_logits, labels)
