@@ -1,0 +1,50 @@
+include LICENSE
+include README.md
+include requirements.txt
+include pyproject.toml
+include .pre-commit-config.yaml
+
+recursive-include configs *.yaml
+recursive-include tests *.py
+
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude *.so
+global-exclude .git
+global-exclude .gitignore
+global-exclude .env
+global-exclude .env.*
+global-exclude .DS_Store
+global-exclude .idea
+global-exclude .vscode
+global-exclude *.swp
+global-exclude *.swo
+global-exclude *~
+global-exclude .ipynb_checkpoints
+global-exclude .coverage
+global-exclude htmlcov
+global-exclude .pytest_cache
+global-exclude .tox
+global-exclude .nox
+global-exclude coverage.xml
+global-exclude *.cover
+global-exclude .hypothesis
+global-exclude logs
+global-exclude *.log
+global-exclude tensorboard
+global-exclude wandb
+global-exclude checkpoints
+global-exclude output
+global-exclude *.pt
+global-exclude *.pth
+global-exclude *.ckpt
+global-exclude *.bin
+global-exclude data
+global-exclude *.jsonl
+global-exclude *.csv
+global-exclude *.tsv
+global-exclude *.txt
+global-exclude node_modules
+global-exclude .cache
+global-exclude .mypy_cache
+global-exclude .ruff_cache 

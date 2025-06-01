@@ -1,0 +1,121 @@
+# EditorConfig is awesome: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# Unix-style newlines with a newline ending every file
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+# Python files
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 88
+
+# YAML files
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# JSON files
+[*.json]
+indent_style = space
+indent_size = 2
+
+# Markdown files
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = off
+
+# JavaScript/TypeScript files
+[*.{js,jsx,ts,tsx}]
+indent_style = space
+indent_size = 2
+
+# CSS/SCSS files
+[*.{css,scss}]
+indent_style = space
+indent_size = 2
+
+# HTML files
+[*.html]
+indent_style = space
+indent_size = 2
+
+# Shell scripts
+[*.sh]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+
+# Batch files
+[*.{bat,cmd}]
+end_of_line = crlf
+
+# PowerShell files
+[*.ps1]
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+
+# Makefiles
+[Makefile]
+indent_style = tab
+
+# Docker files
+[Dockerfile]
+indent_style = space
+indent_size = 4
+
+# Git config
+[.gitconfig]
+indent_style = tab
+
+# Editor config
+[.editorconfig]
+indent_style = space
+indent_size = 2
+
+# Pre-commit config
+[.pre-commit-config.yaml]
+indent_style = space
+indent_size = 2
+
+# Setup config
+[setup.cfg]
+indent_style = space
+indent_size = 4
+
+# Pyproject config
+[pyproject.toml]
+indent_style = space
+indent_size = 4
+
+# Requirements
+[requirements.txt]
+indent_style = space
+indent_size = 4
+
+# License
+[LICENSE]
+indent_style = space
+indent_size = 4
+
+# Manifest
+[MANIFEST.in]
+indent_style = space
+indent_size = 4
+
+# Git ignore
+[.gitignore]
+indent_style = space
+indent_size = 4
+
+# Readme
+[README.md]
+trim_trailing_whitespace = false
+max_line_length = off 

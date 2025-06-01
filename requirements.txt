@@ -1,0 +1,38 @@
+# Базові залежності
+torch>=2.0.0
+numpy>=1.21.0
+tqdm>=4.65.0
+PyYAML>=6.0
+transformers>=4.30.0
+datasets>=2.12.0
+tokenizers>=0.13.3
+
+# Оптимізації
+optuna>=3.2.0
+scikit-learn>=1.2.2
+scipy>=1.10.1
+
+# Візуалізація та логування
+tensorboard>=2.12.0
+matplotlib>=3.7.1
+seaborn>=0.12.2
+wandb>=0.15.4
+
+# Тестування
+pytest>=7.3.1
+pytest-cov>=4.1.0
+pytest-benchmark>=4.0.0
+
+# Утиліти
+black>=23.3.0
+isort>=5.12.0
+flake8>=6.0.0
+mypy>=1.3.0
+pre-commit>=3.3.2
+
+# Опціональні залежності
+bitsandbytes>=0.39.0  # для квантизації
+accelerate>=0.20.0    # для розподіленого навчання
+deepspeed>=0.9.0      # для глибокого навчання
+sentencepiece>=0.1.99 # для токенізації
+protobuf>=4.23.0      # для серіалізації 

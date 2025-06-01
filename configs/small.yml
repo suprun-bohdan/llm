@@ -1,0 +1,50 @@
+# Конфігурація малої моделі
+model:
+  n_layers: 6
+  d_model: 256
+  n_heads: 4
+  d_ff: 1024
+  vocab_size: 4096
+  max_seq_len: 256
+  dropout: 0.1
+
+tokenizer:
+  vocab_size: 4096
+  min_freq: 2
+  special_tokens:
+    - "<pad>"
+    - "<unk>"
+    - "<bos>"
+    - "<eos>"
+
+training:
+  batch_size: 32
+  num_epochs: 10
+  learning_rate: 3e-4
+  warmup_steps: 1000
+  weight_decay: 0.01
+  gradient_clip: 1.0
+  validation_interval: 1000  # кроків
+  checkpoint_interval: 5000  # кроків
+  save_best_only: true
+
+generation:
+  max_len: 50
+  temperature: 0.7
+  top_k: 50
+  top_p: 0.9
+  beam_size: 1  # 1 = greedy/temperature sampling
+
+data:
+  train_path: "my_dataset_clean.jsonl"
+  val_split: 0.1
+  preprocessing:
+    lowercase: true
+    remove_control_chars: true
+    remove_extra_spaces: true
+    keep_emoji: true
+
+logging:
+  log_dir: "runs"
+  log_interval: 100  # кроків
+  tensorboard: true 
