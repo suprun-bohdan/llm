@@ -1,1 +1,68 @@
- 
+# Model configuration
+tokenizer:
+  vocab_size: 32000
+  min_freq: 2
+  special_tokens: ["<pad>", "<unk>", "<bos>", "<eos>"]
+  max_seq_len: 512
+
+student:
+  d_model: 512
+  n_heads: 8
+  n_layers: 6
+  max_seq_len: 512
+  dropout: 0.1
+  use_lora: true
+  lora_rank: 8
+  distill_alpha: 0.5
+  temperature: 2.0
+
+# Hypernetwork configuration
+use_hypernet: true
+hypernet:
+  hidden_sizes: [256, 512, 1024]
+  activation: "gelu"
+
+# Training configuration
+batch_size: 32
+gradient_accumulation_steps: 4
+epochs: 10
+logging_steps: 100
+
+optimizer:
+  learning_rate: 1e-4
+  weight_decay: 0.01
+  warmup_steps: 1000
+
+# Pruning configuration
+pruning:
+  method: "magnitude"  # or "fisher"
+  prune_rate: 0.3
+  schedule: "gradual"  # or "one_shot"
+  start_epoch: 5
+  end_epoch: 8
+  n_samples: 1000  # for Fisher pruning
+
+# Quantization configuration
+quantization:
+  method: "static"  # or "dynamic"
+  bits: 8
+  symmetric: true
+  per_channel: true
+  start_epoch: 8
+
+# RAG configuration
+rag:
+  enabled: true
+  dim: 512
+  nlist: 100
+  m: 8
+  nbits: 8
+
+# Dataset paths
+train_dataset: "data/train.jsonl"
+eval_dataset: "data/eval.jsonl"
+
+# Output configuration
+output_dir: "outputs/advanced"
+checkpoint_dir: "checkpoints"
+log_dir: "logs" 
