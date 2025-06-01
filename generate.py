@@ -27,7 +27,7 @@ import re
 from collections import defaultdict
 import os
 
-from student.model_student import StudentModel
+from model.student_model import StudentModel
 from tokenizer.bpe_pq_tokenizer import BPETokenizer
 from rag_memory.memory_bank import MemoryBank
 from utils.helpers import get_device

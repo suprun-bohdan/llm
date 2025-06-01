@@ -8,7 +8,7 @@ import yaml
 import torch
 from torch.utils.data import DataLoader
 from model.hyperparameter_search import HyperparameterSearch, GridSearch
-from model.trainer import Trainer
+from train_from_scratch import Trainer
 from model.tokenizer import Tokenizer
 from utils.data import load_data, create_dataset, create_dataloaders
 

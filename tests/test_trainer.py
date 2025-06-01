@@ -8,7 +8,7 @@ import tempfile
 from torch.utils.data import DataLoader
 from model.transformer import TransformerModel
 from tokenizer.simple_tokenizer import SimpleTokenizer
-from trainer.trainer import Trainer
+from train_from_scratch import Trainer
 from data.dataset import TextDataset, create_dataloader
 
 

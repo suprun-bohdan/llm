@@ -9,7 +9,7 @@ import torch.nn as nn
 from pathlib import Path
 from model.transformer import TransformerModel
 from tokenizer.simple_tokenizer import SimpleTokenizer
-from trainer.trainer import Trainer
+from train_from_scratch import Trainer
 from data.dataset import (
     create_dataloader,
     load_jsonl_dataset,
@@ -21,7 +21,7 @@ from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
 import wandb
-from student.model_student import StudentModel
+from model.student_model import StudentModel
 import json
 
 

@@ -33,4 +33,19 @@ data:
   val_split: 0.1
 
 logging:
-  log_dir: "logs" 
+  log_dir: "logs"
+
+student:
+  vocab_size: 32000
+  d_model: 768
+  n_heads: 12
+  n_layers: 6
+  d_ff: 3072
+  max_seq_len: 512
+  dropout: 0.1
+  use_lora: false
+  lora_rank: 0
+  distill_alpha: 0.5
+  gradient_checkpointing: false
+  mixed_precision: false
+  ffn_rank: 3072 

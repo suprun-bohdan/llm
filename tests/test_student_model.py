@@ -1,6 +1,6 @@
 import torch
 import pytest
-from student.model_student import StudentModel
+from model.student_model import StudentModel
 
 def test_model_initialization():
     vocab_size = 1000

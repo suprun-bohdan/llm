@@ -13,14 +13,15 @@ from tqdm import tqdm
 from typing import Dict, List, Optional, Tuple, Union
 
 from hypernetwork.hypernet import HyperNetwork
-from student.model_student import StudentModel
-from student.distill import DistillationTrainer
+from model.student_model import StudentModel
+from model.distillation import DistillationTrainer
 from pruning_quant.pruning import MagnitudePruner, FisherPruner
 from pruning_quant.quantization import DynamicQuantizer, StaticQuantizer
 from rag_memory.memory_bank import MemoryBank
 from tokenizer.bpe_pq_tokenizer import BPETokenizer
 from utils.helpers import get_device, count_parameters
 from utils.logger import Logger
+from data.dataset import load_jsonl_dataset, TextDataset, create_dataloader
 
 
 def load_config(config_path: str) -> Dict:
@@ -399,21 +400,37 @@ def main():
         # Create gradient scaler
         scaler = GradScaler()
         
-        # Create dataloaders
-        train_loader = DataLoader(
-            config["train_dataset"],
-            batch_size=config["batch_size"],
-            shuffle=True,
-            num_workers=4,
-            pin_memory=True
+        # Load dataset
+        train_texts = load_jsonl_dataset(config["train_dataset"])
+        eval_texts = load_jsonl_dataset(config["eval_dataset"])
+
+        # Create datasets
+        train_dataset = TextDataset(
+            texts=train_texts,
+            tokenizer=tokenizer,
+            max_length=config["tokenizer"]["max_seq_len"]
         )
-        
-        eval_loader = DataLoader(
-            config["eval_dataset"],
+        eval_dataset = TextDataset(
+            texts=eval_texts,
+            tokenizer=tokenizer,
+            max_length=config["tokenizer"]["max_seq_len"]
+        )
+
+        # Create dataloaders
+        train_loader = create_dataloader(
+            texts=train_texts,
+            tokenizer=tokenizer,
+            max_seq_len=config["tokenizer"]["max_seq_len"],
             batch_size=config["batch_size"],
-            shuffle=False,
-            num_workers=4,
-            pin_memory=True
+            shuffle=True
+        )
+
+        eval_loader = create_dataloader(
+            texts=eval_texts,
+            tokenizer=tokenizer,
+            max_seq_len=config["tokenizer"]["max_seq_len"],
+            batch_size=config["batch_size"],
+            shuffle=False
         )
         
         # Training loop

@@ -14,7 +14,7 @@ from optuna.trial import TrialState
 from optuna.samplers import TPESampler
 from optuna.pruners import MedianPruner
 
-from model.trainer import Trainer
+from train_from_scratch import Trainer
 from model.distillation import DistillationTrainer
 from model.quantization import QuantizationAwareTraining
 

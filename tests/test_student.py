@@ -1,8 +1,8 @@
 import pytest
 import torch
 import torch.nn as nn
-from student.model_student import StudentModel, LoRALinear
-from student.distill import DistillationLoss, DistillationTrainer
+from model.student_model import StudentModel, LoRALinear
+from model.distillation import DistillationLoss, DistillationTrainer
 
 @pytest.fixture
 def student_config():

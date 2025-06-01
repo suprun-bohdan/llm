@@ -4,8 +4,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple, List, Any
 import math
+from model.student_model import StudentModel
 
 
 class DistillationLoss(nn.Module):
@@ -76,7 +77,7 @@ class DistillationTrainer:
     
     def __init__(
         self,
-        student: nn.Module,
+        student: StudentModel,
         teacher: nn.Module,
         optimizer: torch.optim.Optimizer,
         temperature: float = 2.0,
@@ -111,26 +112,32 @@ class DistillationTrainer:
     
     def train_step(
         self,
-        inputs: torch.Tensor,
-        labels: torch.Tensor
+        batch: Dict[str, torch.Tensor]
     ) -> Dict[str, float]:
         """
         Крок навчання.
 
         Args:
-            inputs: Входи
-            labels: Мітки
+            batch: Пакет даних
 
         Returns:
             Словник з метриками
         """
-        inputs = inputs.to(self.device)
-        labels = labels.to(self.device)
+        self.student.train()
+        self.optimizer.zero_grad()
+        
+        input_ids = batch["input_ids"].to(self.device)
+        attention_mask = batch["attention_mask"].to(self.device)
+        labels = batch["target_ids"].to(self.device)
+        
+        student_logits = self.student(input_ids, attention_mask)
         
         with torch.no_grad():
-            teacher_logits = self.teacher(inputs)
-        
-        student_logits = self.student(inputs)
+            teacher_input = self.student.embed_tokens(input_ids) + self.student.pos_embed(
+                torch.arange(0, input_ids.size(1), device=input_ids.device).unsqueeze(0).repeat(input_ids.size(0), 1)
+            )
+            teacher_logits = self.teacher(teacher_input, src_key_padding_mask=attention_mask == 0)
+            teacher_logits = self.student.output_proj(teacher_logits)
         
         loss = self.criterion(
             student_logits,
@@ -138,7 +145,6 @@ class DistillationTrainer:
             labels
         )
         
-        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         
@@ -178,15 +184,22 @@ class DistillationTrainer:
         total_loss = 0
         total_accuracy = 0
         total_kl_div = 0
+        total_tokens = 0
         num_batches = 0
         
         with torch.no_grad():
-            for inputs, labels in dataloader:
-                inputs = inputs.to(self.device)
-                labels = labels.to(self.device)
+            for batch in dataloader:
+                input_ids = batch["input_ids"].to(self.device)
+                attention_mask = batch["attention_mask"].to(self.device)
+                labels = batch["target_ids"].to(self.device)
                 
-                teacher_logits = self.teacher(inputs)
-                student_logits = self.student(inputs)
+                student_logits = self.student(input_ids, attention_mask)
+                
+                teacher_input = self.student.embed_tokens(input_ids) + self.student.pos_embed(
+                    torch.arange(0, input_ids.size(1), device=input_ids.device).unsqueeze(0).repeat(input_ids.size(0), 1)
+                )
+                teacher_logits = self.teacher(teacher_input, src_key_padding_mask=attention_mask == 0)
+                teacher_logits = self.student.output_proj(teacher_logits)
                 
                 loss = self.criterion(
                     student_logits,
@@ -209,36 +222,54 @@ class DistillationTrainer:
                 total_loss += loss.item()
                 total_accuracy += accuracy.item()
                 total_kl_div += kl_div.item()
+                total_tokens += attention_mask.sum().item()
                 num_batches += 1
         
         return {
-            "loss": total_loss / num_batches,
-            "accuracy": total_accuracy / num_batches,
-            "kl_div": total_kl_div / num_batches
+            "eval_loss": total_loss / num_batches,
+            "eval_accuracy": total_accuracy / num_batches,
+            "eval_kl_div": total_kl_div / num_batches,
+            "eval_perplexity": torch.exp(torch.tensor(total_loss / total_tokens)).item()
         }
     
-    def save_checkpoint(self, path: str):
+    def save_checkpoint(
+        self,
+        path: str,
+        epoch: int,
+        metrics: Dict[str, float]
+    ):
         """
         Збереження чекпоінту.
 
         Args:
             path: Шлях для збереження
+            epoch: Номер епохи
+            metrics: Метрики
         """
         torch.save({
-            "student_state_dict": self.student.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict()
+            "student_state": self.student.state_dict(),
+            "optimizer_state": self.optimizer.state_dict(),
+            "epoch": epoch,
+            "metrics": metrics
         }, path)
     
-    def load_checkpoint(self, path: str):
+    def load_checkpoint(
+        self,
+        path: str
+    ) -> Tuple[int, Dict[str, float]]:
         """
         Завантаження чекпоінту.
 
         Args:
             path: Шлях для завантаження
+
+        Returns:
+            Номер епохи та метрики
         """
         checkpoint = torch.load(path)
-        self.student.load_state_dict(checkpoint["student_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.student.load_state_dict(checkpoint["student_state"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state"])
+        return checkpoint["epoch"], checkpoint["metrics"]
 
 
 class ProgressiveDistillation:
@@ -246,7 +277,7 @@ class ProgressiveDistillation:
     
     def __init__(
         self,
-        student: nn.Module,
+        student: StudentModel,
         teacher: nn.Module,
         optimizer: torch.optim.Optimizer,
         num_steps: int = 3,
@@ -274,18 +305,11 @@ class ProgressiveDistillation:
         self.teacher = teacher
         self.optimizer = optimizer
         self.num_steps = num_steps
+        self.initial_temperature = initial_temperature
+        self.final_temperature = final_temperature
+        self.initial_alpha = initial_alpha
+        self.final_alpha = final_alpha
         self.device = device
-        
-        self.temperatures = torch.linspace(
-            initial_temperature,
-            final_temperature,
-            num_steps
-        )
-        self.alphas = torch.linspace(
-            initial_alpha,
-            final_alpha,
-            num_steps
-        )
         
         self.student.to(device)
         self.teacher.to(device)
@@ -302,42 +326,53 @@ class ProgressiveDistillation:
         Returns:
             Кортеж (температура, вага)
         """
-        return (
-            self.temperatures[step].item(),
-            self.alphas[step].item()
+        progress = step / (self.num_steps - 1)
+        temperature = (
+            self.initial_temperature * (1 - progress) +
+            self.final_temperature * progress
         )
+        alpha = (
+            self.initial_alpha * (1 - progress) +
+            self.final_alpha * progress
+        )
+        return temperature, alpha
     
     def train_step(
         self,
-        inputs: torch.Tensor,
-        labels: torch.Tensor,
+        batch: Dict[str, torch.Tensor],
         step: int
     ) -> Dict[str, float]:
         """
         Крок навчання.
 
         Args:
-            inputs: Входи
-            labels: Мітки
+            batch: Пакет даних
             step: Номер кроку
 
         Returns:
             Словник з метриками
         """
         temperature, alpha = self.get_step_params(step)
-        
         criterion = DistillationLoss(
             temperature=temperature,
             alpha=alpha
         )
         
-        inputs = inputs.to(self.device)
-        labels = labels.to(self.device)
+        self.student.train()
+        self.optimizer.zero_grad()
+        
+        input_ids = batch["input_ids"].to(self.device)
+        attention_mask = batch["attention_mask"].to(self.device)
+        labels = batch["target_ids"].to(self.device)
+        
+        student_logits = self.student(input_ids, attention_mask)
         
         with torch.no_grad():
-            teacher_logits = self.teacher(inputs)
-        
-        student_logits = self.student(inputs)
+            teacher_input = self.student.embed_tokens(input_ids) + self.student.pos_embed(
+                torch.arange(0, input_ids.size(1), device=input_ids.device).unsqueeze(0).repeat(input_ids.size(0), 1)
+            )
+            teacher_logits = self.teacher(teacher_input, src_key_padding_mask=attention_mask == 0)
+            teacher_logits = self.student.output_proj(teacher_logits)
         
         loss = criterion(
             student_logits,
@@ -345,7 +380,6 @@ class ProgressiveDistillation:
             labels
         )
         
-        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         
@@ -370,43 +404,6 @@ class ProgressiveDistillation:
             "alpha": alpha
         }
     
-    def train_epoch(
-        self,
-        dataloader: torch.utils.data.DataLoader,
-        step: int
-    ) -> Dict[str, float]:
-        """
-        Навчання епохи.
-
-        Args:
-            dataloader: Завантажувач даних
-            step: Номер кроку
-
-        Returns:
-            Словник з метриками
-        """
-        self.student.train()
-        total_loss = 0
-        total_accuracy = 0
-        total_kl_div = 0
-        num_batches = 0
-        
-        for inputs, labels in dataloader:
-            metrics = self.train_step(inputs, labels, step)
-            
-            total_loss += metrics["loss"]
-            total_accuracy += metrics["accuracy"]
-            total_kl_div += metrics["kl_div"]
-            num_batches += 1
-        
-        return {
-            "loss": total_loss / num_batches,
-            "accuracy": total_accuracy / num_batches,
-            "kl_div": total_kl_div / num_batches,
-            "temperature": metrics["temperature"],
-            "alpha": metrics["alpha"]
-        }
-    
     def evaluate(
         self,
         dataloader: torch.utils.data.DataLoader,
@@ -422,25 +419,32 @@ class ProgressiveDistillation:
         Returns:
             Словник з метриками
         """
-        self.student.eval()
         temperature, alpha = self.get_step_params(step)
         criterion = DistillationLoss(
             temperature=temperature,
             alpha=alpha
         )
         
+        self.student.eval()
         total_loss = 0
         total_accuracy = 0
         total_kl_div = 0
+        total_tokens = 0
         num_batches = 0
         
         with torch.no_grad():
-            for inputs, labels in dataloader:
-                inputs = inputs.to(self.device)
-                labels = labels.to(self.device)
+            for batch in dataloader:
+                input_ids = batch["input_ids"].to(self.device)
+                attention_mask = batch["attention_mask"].to(self.device)
+                labels = batch["target_ids"].to(self.device)
                 
-                teacher_logits = self.teacher(inputs)
-                student_logits = self.student(inputs)
+                student_logits = self.student(input_ids, attention_mask)
+                
+                teacher_input = self.student.embed_tokens(input_ids) + self.student.pos_embed(
+                    torch.arange(0, input_ids.size(1), device=input_ids.device).unsqueeze(0).repeat(input_ids.size(0), 1)
+                )
+                teacher_logits = self.teacher(teacher_input, src_key_padding_mask=attention_mask == 0)
+                teacher_logits = self.student.output_proj(teacher_logits)
                 
                 loss = criterion(
                     student_logits,
@@ -463,31 +467,43 @@ class ProgressiveDistillation:
                 total_loss += loss.item()
                 total_accuracy += accuracy.item()
                 total_kl_div += kl_div.item()
+                total_tokens += attention_mask.sum().item()
                 num_batches += 1
         
         return {
-            "loss": total_loss / num_batches,
-            "accuracy": total_accuracy / num_batches,
-            "kl_div": total_kl_div / num_batches,
+            "eval_loss": total_loss / num_batches,
+            "eval_accuracy": total_accuracy / num_batches,
+            "eval_kl_div": total_kl_div / num_batches,
+            "eval_perplexity": torch.exp(torch.tensor(total_loss / total_tokens)).item(),
             "temperature": temperature,
             "alpha": alpha
         }
     
-    def save_checkpoint(self, path: str, step: int):
+    def save_checkpoint(
+        self,
+        path: str,
+        step: int,
+        metrics: Dict[str, float]
+    ):
         """
         Збереження чекпоінту.
 
         Args:
             path: Шлях для збереження
             step: Номер кроку
+            metrics: Метрики
         """
         torch.save({
-            "student_state_dict": self.student.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "step": step
+            "student_state": self.student.state_dict(),
+            "optimizer_state": self.optimizer.state_dict(),
+            "step": step,
+            "metrics": metrics
         }, path)
     
-    def load_checkpoint(self, path: str) -> int:
+    def load_checkpoint(
+        self,
+        path: str
+    ) -> int:
         """
         Завантаження чекпоінту.
 
@@ -498,6 +514,6 @@ class ProgressiveDistillation:
             Номер кроку
         """
         checkpoint = torch.load(path)
-        self.student.load_state_dict(checkpoint["student_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.student.load_state_dict(checkpoint["student_state"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state"])
         return checkpoint["step"] 

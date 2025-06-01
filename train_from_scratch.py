@@ -10,7 +10,7 @@ from torch.cuda.amp import autocast, GradScaler
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Any
 import argparse
 from tqdm import tqdm
 import wandb
@@ -21,13 +21,11 @@ import numpy as np
 from transformers import get_linear_schedule_with_warmup
 import os
 
-from student.model_student import StudentModel
+from model.student_model import StudentModel
 from tokenizer.bpe_pq_tokenizer import BPETokenizer
 from utils.helpers import get_device, setup_logging
 from tokenizer.simple_tokenizer import SimpleTokenizer
-from model.transformer import Transformer
-from model.distillation import DistillationTrainer
-from model.optimizations import ModelOptimizer
+from model.transformer import TransformerModel
 from data.dataset import (
     load_jsonl_dataset,
     split_dataset,
@@ -413,7 +411,7 @@ def main():
         )
         
         # Create model
-        model = Transformer(
+        model = TransformerModel(
             vocab_size=len(tokenizer.token_to_id),
             d_model=config["student"]["d_model"],
             n_heads=config["student"]["n_heads"],
