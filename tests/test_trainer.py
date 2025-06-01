@@ -1,5 +1,5 @@
 """
-Тести для тренера моделі.
+Model trainer tests.
 """
 import os
 import pytest
@@ -14,8 +14,7 @@ from data.dataset import TextDataset, create_dataloader
 
 @pytest.fixture
 def model_and_tokenizer():
-    """Фікстура для моделі та токенізатора."""
-    # Параметри
+    """Model and tokenizer fixture."""
     vocab_size = 1000
     d_model = 64
     n_heads = 4
@@ -23,7 +22,6 @@ def model_and_tokenizer():
     d_ff = 256
     max_seq_len = 32
     
-    # Створення моделі
     model = TransformerModel(
         vocab_size=vocab_size,
         d_model=d_model,
@@ -33,14 +31,12 @@ def model_and_tokenizer():
         max_seq_len=max_seq_len
     )
     
-    # Створення токенізатора
     tokenizer = SimpleTokenizer(
         vocab_size=vocab_size,
         min_freq=2,
         special_tokens=["<pad>", "<unk>", "<bos>", "<eos>"]
     )
     
-    # Навчання токенізатора на простому корпусі
     texts = [
         "привіт світ",
         "привіт світ",
@@ -56,10 +52,9 @@ def model_and_tokenizer():
 
 @pytest.fixture
 def dataloaders(model_and_tokenizer):
-    """Фікстура для завантажувачів даних."""
+    """Data loaders fixture."""
     model, tokenizer = model_and_tokenizer
     
-    # Тренувальні дані
     train_texts = [
         "привіт світ",
         "як справи",
@@ -68,13 +63,11 @@ def dataloaders(model_and_tokenizer):
         "ще один текст"
     ]
     
-    # Валідаційні дані
     val_texts = [
         "привіт світ",
         "як справи"
     ]
     
-    # Створення завантажувачів
     train_dataloader = create_dataloader(
         texts=train_texts,
         tokenizer=tokenizer,
@@ -104,17 +97,16 @@ def dataloaders(model_and_tokenizer):
 
 @pytest.fixture
 def trainer(model_and_tokenizer, dataloaders):
-    """Фікстура для тренера."""
+    """Trainer fixture."""
     model, tokenizer = model_and_tokenizer
     train_dataloader, val_dataloader = dataloaders
     
-    # Створення тренера
     trainer = Trainer(
         model=model,
         tokenizer=tokenizer,
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
-        device="cpu",  # Використовуємо CPU для тестів
+        device="cpu",
         learning_rate=1e-4,
         weight_decay=0.01,
         max_epochs=2,
@@ -126,7 +118,7 @@ def trainer(model_and_tokenizer, dataloaders):
 
 
 def test_trainer_init(trainer):
-    """Тест ініціалізації тренера."""
+    """Test trainer initialization."""
     assert trainer.model is not None
     assert trainer.tokenizer is not None
     assert trainer.train_dataloader is not None
@@ -149,11 +141,9 @@ def test_trainer_init(trainer):
 
 
 def test_train_epoch(trainer):
-    """Тест навчання на одній епосі."""
-    # Навчання на епосі
+    """Test training for one epoch."""
     loss = trainer.train_epoch()
     
-    # Перевірки
     assert isinstance(loss, float)
     assert loss > 0
     assert len(trainer.history["train_loss"]) == 1
@@ -162,22 +152,18 @@ def test_train_epoch(trainer):
 
 
 def test_evaluate(trainer):
-    """Тест валідації."""
-    # Валідація
+    """Test validation."""
     loss = trainer.evaluate()
     
-    # Перевірки
     assert isinstance(loss, float)
     assert loss > 0
     assert len(trainer.history["val_loss"]) == 1
 
 
 def test_train(trainer):
-    """Тест повного навчання."""
-    # Навчання
+    """Test full training."""
     history = trainer.train()
     
-    # Перевірки
     assert isinstance(history, dict)
     assert "train_loss" in history
     assert "val_loss" in history
@@ -189,46 +175,36 @@ def test_train(trainer):
 
 
 def test_save_load_checkpoint(trainer, tmp_path):
-    """Тест збереження та завантаження чекпоінту."""
-    # Зміна директорії для чекпоінтів
+    """Test checkpoint save/load."""
     trainer.checkpoint_dir = str(tmp_path)
     
-    # Навчання на одній епосі
     trainer.train_epoch()
     
-    # Збереження чекпоінту
     filename = "test_checkpoint.pt"
     trainer.save_checkpoint(filename)
     
-    # Перевірка файлу
     path = os.path.join(trainer.checkpoint_dir, filename)
     assert os.path.exists(path)
     
-    # Збереження стану
     old_step = trainer.step
     old_epoch = trainer.epoch
     old_loss = trainer.best_val_loss
     
-    # Зміна стану
     trainer.step = 0
     trainer.epoch = 0
     trainer.best_val_loss = float("inf")
     
-    # Завантаження чекпоінту
     trainer.load_checkpoint(filename)
     
-    # Перевірка відновлення стану
     assert trainer.step == old_step
     assert trainer.epoch == old_epoch
     assert trainer.best_val_loss == old_loss
 
 
 def test_generate_text(trainer):
-    """Тест генерації тексту."""
-    # Навчання на одній епосі
+    """Test text generation."""
     trainer.train_epoch()
     
-    # Генерація
     prompt = "привіт"
     texts = trainer.generate_text(
         prompt=prompt,
@@ -238,7 +214,6 @@ def test_generate_text(trainer):
         num_return_sequences=2
     )
     
-    # Перевірки
     assert isinstance(texts, list)
     assert len(texts) == 2
     assert all(isinstance(text, str) for text in texts)
@@ -247,30 +222,25 @@ def test_generate_text(trainer):
 
 
 def test_early_stopping(trainer):
-    """Тест раннього зупинки."""
-    # Зміна терпіння
+    """Test early stopping."""
     trainer.early_stopping_patience = 1
     
-    # Навчання
     history = trainer.train()
     
-    # Перевірки
     assert len(history["train_loss"]) <= trainer.max_epochs
     assert trainer.patience_counter >= trainer.early_stopping_patience
 
 
 def test_invalid_checkpoint(trainer):
-    """Тест завантаження невалідного чекпоінту."""
+    """Test loading invalid checkpoint."""
     with pytest.raises(FileNotFoundError):
         trainer.load_checkpoint("non_existent.pt")
 
 
 def test_device_placement(trainer):
-    """Тест розміщення на пристрої."""
-    # Перевірка моделі
+    """Test device placement."""
     assert next(trainer.model.parameters()).device.type == "cpu"
     
-    # Перевірка батчу
     batch = next(iter(trainer.train_dataloader))
     for tensor in batch.values():
         assert tensor.device.type == "cpu" 

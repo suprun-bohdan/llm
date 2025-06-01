@@ -1,5 +1,5 @@
 """
-Оптимізації для моделі.
+Model optimizations.
 """
 import torch
 import torch.nn as nn
@@ -9,15 +9,15 @@ import math
 
 
 class ReversibleBlock(nn.Module):
-    """Оборотний блок для зменшення використання пам'яті."""
+    """Reversible block for memory efficiency."""
     
     def __init__(self, f: nn.Module, g: nn.Module):
         """
-        Ініціалізація оборотного блоку.
+        Initialize reversible block.
 
         Args:
-            f: Перша функція (наприклад, attention)
-            g: Друга функція (наприклад, feed-forward)
+            f: First function (e.g. attention)
+            g: Second function (e.g. feed-forward)
         """
         super().__init__()
         self.f = f
@@ -25,14 +25,14 @@ class ReversibleBlock(nn.Module):
     
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Прямий прохід.
+        Forward pass.
 
         Args:
-            x1: Перший вхідний тензор
-            x2: Другий вхідний тензор
+            x1: First input tensor
+            x2: Second input tensor
 
         Returns:
-            Кортеж з двох тензорів
+            Tuple of two tensors
         """
         y1 = x1 + self.f(x2)
         y2 = x2 + self.g(y1)
@@ -40,14 +40,14 @@ class ReversibleBlock(nn.Module):
     
     def backward(self, y1: torch.Tensor, y2: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Зворотній прохід.
+        Backward pass.
 
         Args:
-            y1: Перший вихідний тензор
-            y2: Другий вихідний тензор
+            y1: First output tensor
+            y2: Second output tensor
 
         Returns:
-            Кортеж з двох тензорів
+            Tuple of two tensors
         """
         x2 = y2 - self.g(y1)
         x1 = y1 - self.f(x2)
@@ -55,7 +55,7 @@ class ReversibleBlock(nn.Module):
 
 
 class LowRankLinear(nn.Module):
-    """Low-rank лінійний шар для зменшення кількості параметрів."""
+    """Low-rank linear layer for parameter reduction."""
     
     def __init__(
         self,
@@ -65,13 +65,13 @@ class LowRankLinear(nn.Module):
         bias: bool = True
     ):
         """
-        Ініціалізація low-rank шару.
+        Initialize low-rank layer.
 
         Args:
-            in_features: Розмірність входу
-            out_features: Розмірність виходу
-            rank: Ранг розкладу
-            bias: Використання зміщення
+            in_features: Input dimension
+            out_features: Output dimension
+            rank: Decomposition rank
+            bias: Use bias
         """
         super().__init__()
         self.rank = rank
@@ -80,19 +80,19 @@ class LowRankLinear(nn.Module):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Прямий прохід.
+        Forward pass.
 
         Args:
-            x: Вхідний тензор
+            x: Input tensor
 
         Returns:
-            Вихідний тензор
+            Output tensor
         """
         return self.v(self.u(x))
 
 
 class LoRALayer(nn.Module):
-    """LoRA адаптер для fine-tuning."""
+    """LoRA adapter for fine-tuning."""
     
     def __init__(
         self,
@@ -102,12 +102,12 @@ class LoRALayer(nn.Module):
         dropout: float = 0.1
     ):
         """
-        Ініціалізація LoRA шару.
+        Initialize LoRA layer.
 
         Args:
-            original: Оригінальний лінійний шар
-            rank: Ранг LoRA
-            scaling: Масштабування
+            original: Original linear layer
+            rank: LoRA rank
+            scaling: Scaling factor
             dropout: Dropout
         """
         super().__init__()
@@ -115,7 +115,6 @@ class LoRALayer(nn.Module):
         self.rank = rank
         self.scaling = scaling
         
-        # LoRA адаптери
         self.lora_a = nn.Linear(
             original.in_features,
             rank,
@@ -128,19 +127,18 @@ class LoRALayer(nn.Module):
         )
         self.dropout = nn.Dropout(dropout)
         
-        # Ініціалізація
         nn.init.kaiming_uniform_(self.lora_a.weight, a=math.sqrt(5))
         nn.init.zeros_(self.lora_b.weight)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Прямий прохід.
+        Forward pass.
 
         Args:
-            x: Вхідний тензор
+            x: Input tensor
 
         Returns:
-            Вихідний тензор
+            Output tensor
         """
         return (
             self.original(x) +
@@ -173,7 +171,6 @@ class PerformerAttention(nn.Module):
         self.nb_features = nb_features
         self.head_dim = d_model // n_heads
         
-        # Проекції
         self.q_proj = nn.Linear(d_model, d_model)
         self.k_proj = nn.Linear(d_model, d_model)
         self.v_proj = nn.Linear(d_model, d_model)
@@ -181,7 +178,6 @@ class PerformerAttention(nn.Module):
         
         self.dropout = nn.Dropout(dropout)
         
-        # Випадкові проекції для Performer
         self.register_buffer(
             "random_proj",
             torch.randn(nb_features, self.head_dim)
@@ -204,11 +200,9 @@ class PerformerAttention(nn.Module):
         Returns:
             Матриця уваги
         """
-        # Проекція на випадкові особливості
         q_proj = F.linear(q, self.random_proj)
         k_proj = F.linear(k, self.random_proj)
         
-        # Обчислення уваги
         scores = torch.matmul(q_proj, k_proj.transpose(-2, -1))
         scores = scores / math.sqrt(self.nb_features)
         
@@ -234,21 +228,17 @@ class PerformerAttention(nn.Module):
         """
         batch_size, seq_len, _ = x.size()
         
-        # Проекції
         q = self.q_proj(x).view(batch_size, seq_len, self.n_heads, self.head_dim)
         k = self.k_proj(x).view(batch_size, seq_len, self.n_heads, self.head_dim)
         v = self.v_proj(x).view(batch_size, seq_len, self.n_heads, self.head_dim)
         
-        # Транспонування для обчислення уваги
         q = q.transpose(1, 2)
         k = k.transpose(1, 2)
         v = v.transpose(1, 2)
         
-        # Обчислення уваги
         scores = self._get_attention_scores(q, k, mask)
         scores = self.dropout(scores)
         
-        # Згортка зі значеннями
         out = torch.matmul(scores, v)
         out = out.transpose(1, 2).contiguous()
         out = out.view(batch_size, seq_len, self.d_model)
@@ -283,7 +273,6 @@ class MagnitudePruner:
         self.start_epoch = start_epoch
         self.end_epoch = end_epoch
         
-        # Ініціалізація масок
         self.masks = {}
         for name, module in model.named_modules():
             if isinstance(module, nn.Linear):
@@ -319,17 +308,14 @@ class MagnitudePruner:
         
         for name, module in self.model.named_modules():
             if isinstance(module, nn.Linear):
-                # Обчислення порогу
                 weights = module.weight.data.abs()
                 threshold = torch.quantile(
                     weights.view(-1),
                     current_amount
                 )
                 
-                # Оновлення маски
                 self.masks[name] = (weights > threshold).float()
                 
-                # Застосування маски
                 module.weight.data *= self.masks[name]
 
 
@@ -390,7 +376,6 @@ class MemoryBank:
         if not self.vectors:
             return []
         
-        # Обчислення схожості
         vectors = torch.stack(self.vectors)
         if self.similarity == "cosine":
             similarities = F.cosine_similarity(
@@ -398,13 +383,12 @@ class MemoryBank:
                 vectors,
                 dim=1
             )
-        else:  # euclidean
+        else:
             similarities = -torch.norm(
                 query.unsqueeze(0) - vectors,
                 dim=1
             )
         
-        # Отримання найкращих результатів
         top_indices = similarities.argsort(descending=True)[:top_k]
         
         return [

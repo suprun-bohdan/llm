@@ -1,5 +1,5 @@
 """
-Модуль для логування.
+Logging module.
 """
 import os
 import time
@@ -9,7 +9,7 @@ import torch
 
 
 class Logger:
-    """Логер для навчання."""
+    """Training logger."""
 
     def __init__(
         self,
@@ -17,11 +17,11 @@ class Logger:
         experiment_name: Optional[str] = None
     ):
         """
-        Ініціалізація.
+        Initialize.
 
         Args:
-            log_dir: Директорія для логів
-            experiment_name: Назва експерименту
+            log_dir: Log directory
+            experiment_name: Experiment name
         """
         if experiment_name is None:
             experiment_name = time.strftime("%Y%m%d_%H%M%S")
@@ -36,12 +36,12 @@ class Logger:
         prefix: str = ""
     ) -> None:
         """
-        Логування метрик.
+        Log metrics.
 
         Args:
-            metrics: Словник метрик
-            step: Крок
-            prefix: Префікс для назв метрик
+            metrics: Dictionary of metrics
+            step: Step
+            prefix: Metric name prefix
         """
         for name, value in metrics.items():
             if prefix:
@@ -50,10 +50,10 @@ class Logger:
 
     def log_config(self, config: Dict[str, Any]) -> None:
         """
-        Логування конфігурації.
+        Log configuration.
 
         Args:
-            config: Конфігурація
+            config: Configuration
         """
         for name, value in config.items():
             if isinstance(value, (int, float, str, bool)):
@@ -65,18 +65,18 @@ class Logger:
         input_shape: tuple = (1, 256)
     ) -> None:
         """
-        Логування графу моделі.
+        Log model graph.
 
         Args:
-            model: Модель
-            input_shape: Форма входу
+            model: Model
+            input_shape: Input shape
         """
         try:
             dummy_input = torch.zeros(input_shape, dtype=torch.long)
             self.writer.add_graph(model, dummy_input)
         except Exception as e:
-            print(f"Помилка логування графу моделі: {e}")
+            print(f"Error logging model graph: {e}")
 
     def close(self) -> None:
-        """Закриття логера."""
-        self.writer.close() 
+        """Close logger."""
+        self.writer.close()

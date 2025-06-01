@@ -1,5 +1,5 @@
 """
-Головний скрипт для навчання моделі.
+Main script for model training.
 """
 import os
 import argparse
@@ -18,7 +18,7 @@ from utils.logger import Logger
 
 
 class DialogueDataset(Dataset):
-    """Датасет діалогів."""
+    """Dialogue dataset."""
 
     def __init__(
         self,
@@ -27,42 +27,39 @@ class DialogueDataset(Dataset):
         max_seq_len: int
     ):
         """
-        Ініціалізація.
+        Initialize.
 
         Args:
-            data: Дані
-            tokenizer: Токенізатор
-            max_seq_len: Максимальна довжина послідовності
+            data: Data
+            tokenizer: Tokenizer
+            max_seq_len: Maximum sequence length
         """
         self.data = data
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
 
     def __len__(self) -> int:
-        """Розмір датасету."""
+        """Dataset size."""
         return len(self.data)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         """
-        Отримання елемента.
+        Get item.
 
         Args:
-            idx: Індекс
+            idx: Index
 
         Returns:
-            Словник з даними
+            Dictionary with data
         """
         item = self.data[idx]
         
-        # Токенізація
         prompt_ids = self.tokenizer.encode(item["prompt"])
         response_ids = self.tokenizer.encode(item["response"])
         
-        # Обмеження довжини
         prompt_ids = prompt_ids[:self.max_seq_len - 1]
         response_ids = response_ids[:self.max_seq_len - 1]
         
-        # Додавання спеціальних токенів
         input_ids = (
             [self.tokenizer.token_to_id["<bos>"]] +
             prompt_ids +
@@ -71,10 +68,8 @@ class DialogueDataset(Dataset):
             [self.tokenizer.token_to_id["<eos>"]]
         )
         
-        # Створення міток (зсув на 1)
         labels = input_ids[1:] + [self.tokenizer.token_to_id["<pad>"]]
         
-        # Паддінг
         if len(input_ids) < self.max_seq_len:
             pad_len = self.max_seq_len - len(input_ids)
             input_ids = input_ids + [self.tokenizer.token_to_id["<pad>"]] * pad_len
@@ -88,13 +83,13 @@ class DialogueDataset(Dataset):
 
 def collate_fn(batch: list) -> Dict[str, torch.Tensor]:
     """
-    Функція для згортки батчу.
+    Batch collation function.
 
     Args:
-        batch: Батч
+        batch: Batch
 
     Returns:
-        Згортка батчу
+        Collated batch
     """
     input_ids = torch.stack([item["input_ids"] for item in batch])
     labels = torch.stack([item["labels"] for item in batch])
@@ -107,27 +102,23 @@ def collate_fn(batch: list) -> Dict[str, torch.Tensor]:
 
 def main(args: argparse.Namespace) -> None:
     """
-    Головна функція.
+    Main function.
 
     Args:
-        args: Аргументи командного рядка
+        args: Command line arguments
     """
-    # Завантаження конфігурації
     with open(args.config, "r", encoding="utf-8") as f:
         config_dict = yaml.safe_load(f)
     config = Config.from_yaml(args.config)
 
-    # Встановлення seed
     set_seed(args.seed)
 
-    # Ініціалізація логера
     logger = Logger(
         log_dir=config.logging.log_dir,
         experiment_name=args.experiment_name
     )
     logger.log_config(config_dict)
 
-    # Завантаження даних
     data = load_jsonl(args.data)
     train_data, val_data = split_data(
         data,
@@ -135,19 +126,16 @@ def main(args: argparse.Namespace) -> None:
         seed=args.seed
     )
 
-    # Ініціалізація токенізатора
     tokenizer = SimpleTokenizer(
         vocab_size=config.tokenizer.vocab_size,
         min_freq=config.tokenizer.min_freq,
         special_tokens=config.tokenizer.special_tokens
     )
     
-    # Навчання токенізатора
     texts = [item["prompt"] + " " + item["response"] for item in train_data]
     tokenizer.train(texts)
     tokenizer.save("tokenizer/vocab.json")
 
-    # Створення датасетів
     train_dataset = DialogueDataset(
         train_data,
         tokenizer,
@@ -159,7 +147,6 @@ def main(args: argparse.Namespace) -> None:
         config.model.max_seq_len
     )
 
-    # Створення завантажувачів
     train_loader = DataLoader(
         train_dataset,
         batch_size=config.training.batch_size,
@@ -175,7 +162,6 @@ def main(args: argparse.Namespace) -> None:
         num_workers=args.num_workers
     )
 
-    # Ініціалізація моделі
     model = TransformerModel(
         vocab_size=config.model.vocab_size,
         d_model=config.model.d_model,
@@ -186,10 +172,8 @@ def main(args: argparse.Namespace) -> None:
         dropout=config.model.dropout
     )
 
-    # Логування графу моделі
     logger.log_model_graph(model)
 
-    # Ініціалізація тренера
     trainer = Trainer(
         model=model,
         train_loader=train_loader,
@@ -198,50 +182,48 @@ def main(args: argparse.Namespace) -> None:
         device=get_device()
     )
 
-    # Завантаження чекпоінту, якщо вказано
     if args.checkpoint:
         trainer.load_checkpoint(args.checkpoint)
 
-    # Навчання
     trainer.train(config.training.num_epochs)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Навчання мовної моделі")
+    parser = argparse.ArgumentParser(description="Language model training")
     
     parser.add_argument(
         "--config",
         type=str,
         required=True,
-        help="Шлях до конфігурації"
+        help="Path to configuration"
     )
     parser.add_argument(
         "--data",
         type=str,
         required=True,
-        help="Шлях до даних"
+        help="Path to data"
     )
     parser.add_argument(
         "--experiment-name",
         type=str,
-        help="Назва експерименту"
+        help="Experiment name"
     )
     parser.add_argument(
         "--seed",
         type=int,
         default=42,
-        help="Seed для відтворюваності"
+        help="Seed for reproducibility"
     )
     parser.add_argument(
         "--num-workers",
         type=int,
         default=4,
-        help="Кількість робочих процесів"
+        help="Number of worker processes"
     )
     parser.add_argument(
         "--checkpoint",
         type=str,
-        help="Шлях до чекпоінту"
+        help="Path to checkpoint"
     )
     
     args = parser.parse_args()

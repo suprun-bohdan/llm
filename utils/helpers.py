@@ -1,5 +1,5 @@
 """
-Допоміжні функції.
+Helper functions.
 """
 import os
 import json
@@ -11,7 +11,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 def set_seed(seed: int) -> None:
     """
-    Встановлення seed для відтворюваності.
+    Set seed for reproducibility.
 
     Args:
         seed: Seed
@@ -31,14 +31,14 @@ def create_mask(
     device: Optional[torch.device] = None
 ) -> torch.Tensor:
     """
-    Створення маски для self-attention.
+    Create mask for self-attention.
 
     Args:
-        seq_len: Довжина послідовності
-        device: Пристрій
+        seq_len: Sequence length
+        device: Device
 
     Returns:
-        Маска [seq_len, seq_len]
+        Mask [seq_len, seq_len]
     """
     mask = torch.triu(
         torch.ones(seq_len, seq_len, device=device),
@@ -49,13 +49,13 @@ def create_mask(
 
 def load_jsonl(path: str) -> List[Dict[str, Any]]:
     """
-    Завантаження JSONL файлу.
+    Load JSONL file.
 
     Args:
-        path: Шлях до файлу
+        path: Path to file
 
     Returns:
-        Список словників
+        List of dictionaries
     """
     data = []
     with open(path, "r", encoding="utf-8") as f:
@@ -66,11 +66,11 @@ def load_jsonl(path: str) -> List[Dict[str, Any]]:
 
 def save_jsonl(data: List[Dict[str, Any]], path: str) -> None:
     """
-    Збереження в JSONL файл.
+    Save to JSONL file.
 
     Args:
-        data: Список словників
-        path: Шлях до файлу
+        data: List of dictionaries
+        path: Path to file
     """
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -84,15 +84,15 @@ def split_data(
     seed: Optional[int] = None
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
-    Розділення даних на тренувальну та валідаційну вибірки.
+    Split data into training and validation sets.
 
     Args:
-        data: Дані
-        val_split: Частка валідаційної вибірки
-        seed: Seed для відтворюваності
+        data: Data
+        val_split: Validation set ratio
+        seed: Seed for reproducibility
 
     Returns:
-        Тренувальна та валідаційна вибірки
+        Training and validation sets
     """
     if seed is not None:
         random.seed(seed)
@@ -108,15 +108,15 @@ def compute_perplexity(
     ignore_index: int = -100
 ) -> float:
     """
-    Обчислення перплексності.
+    Compute perplexity.
 
     Args:
-        logits: Логіти [batch_size, seq_len, vocab_size]
-        labels: Мітки [batch_size, seq_len]
-        ignore_index: Індекс для ігнорування
+        logits: Logits [batch_size, seq_len, vocab_size]
+        labels: Labels [batch_size, seq_len]
+        ignore_index: Index to ignore
 
     Returns:
-        Перплексність
+        Perplexity
     """
     loss = torch.nn.CrossEntropyLoss(
         ignore_index=ignore_index,
@@ -130,10 +130,10 @@ def compute_perplexity(
 
 def get_device() -> torch.device:
     """
-    Отримання пристрою.
+    Get device.
 
     Returns:
-        Пристрій
+        Device
     """
     if torch.cuda.is_available():
         return torch.device("cuda")
@@ -142,12 +142,12 @@ def get_device() -> torch.device:
 
 def count_parameters(model: torch.nn.Module) -> int:
     """
-    Підрахунок параметрів моделі.
+    Count model parameters.
 
     Args:
-        model: Модель
+        model: Model
 
     Returns:
-        Кількість параметрів
+        Number of parameters
     """
     return sum(p.numel() for p in model.parameters() if p.requires_grad) 

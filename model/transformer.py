@@ -1,5 +1,5 @@
 """
-Реалізація трансформера з нуля.
+Transformer implementation from scratch.
 """
 import math
 from typing import Optional, Tuple, Dict, Any, List
@@ -11,21 +11,20 @@ import numpy as np
 
 
 class PositionalEncoding(nn.Module):
-    """Позиційне кодування."""
+    """Positional encoding."""
 
     def __init__(self, d_model: int, max_seq_len: int = 512, dropout: float = 0.1):
         """
-        Ініціалізація.
+        Initialize.
 
         Args:
-            d_model: Розмірність моделі
-            max_seq_len: Максимальна довжина послідовності
-            dropout: Ймовірність dropout
+            d_model: Model dimension
+            max_seq_len: Maximum sequence length
+            dropout: Dropout probability
         """
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
 
-        # Створення матриці позиційного кодування
         pe = torch.zeros(max_seq_len, d_model)
         position = torch.arange(0, max_seq_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(
@@ -34,7 +33,7 @@ class PositionalEncoding(nn.Module):
         
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)  # [1, max_seq_len, d_model]
+        pe = pe.unsqueeze(0)
         
         self.register_buffer("pe", pe)
 
@@ -43,17 +42,17 @@ class PositionalEncoding(nn.Module):
         Forward pass.
 
         Args:
-            x: Тензор форми [batch_size, seq_len, d_model]
+            x: Tensor of shape [batch_size, seq_len, d_model]
 
         Returns:
-            Тензор з позиційним кодуванням
+            Tensor with positional encoding
         """
         x = x + self.pe[:, :x.size(1)]
         return self.dropout(x)
 
 
 class MultiHeadAttention(nn.Module):
-    """Багатоголова увага."""
+    """Multi-head attention."""
 
     def __init__(
         self,
@@ -63,22 +62,21 @@ class MultiHeadAttention(nn.Module):
         bias: bool = True
     ):
         """
-        Ініціалізація.
+        Initialize.
 
         Args:
-            d_model: Розмірність моделі
-            n_heads: Кількість голів
+            d_model: Model dimension
+            n_heads: Number of heads
             dropout: Dropout
-            bias: Використовувати зміщення
+            bias: Use bias
         """
         super().__init__()
-        assert d_model % n_heads == 0, "d_model має ділитися на n_heads"
+        assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
 
         self.d_model = d_model
         self.n_heads = n_heads
         self.d_k = d_model // n_heads
 
-        # Проекції
         self.q_proj = nn.Linear(d_model, d_model, bias=bias)
         self.k_proj = nn.Linear(d_model, d_model, bias=bias)
         self.v_proj = nn.Linear(d_model, d_model, bias=bias)
@@ -98,22 +96,20 @@ class MultiHeadAttention(nn.Module):
         Forward pass.
 
         Args:
-            q: Запити [batch_size, seq_len, d_model]
-            k: Ключі [batch_size, seq_len, d_model]
-            v: Значення [batch_size, seq_len, d_model]
-            mask: Маска [batch_size, seq_len, seq_len]
+            q: Queries [batch_size, seq_len, d_model]
+            k: Keys [batch_size, seq_len, d_model]
+            v: Values [batch_size, seq_len, d_model]
+            mask: Mask [batch_size, seq_len, seq_len]
 
         Returns:
-            Вихід [batch_size, seq_len, d_model]
+            Output [batch_size, seq_len, d_model]
         """
         batch_size = q.size(0)
 
-        # Проекції
         q = self.q_proj(q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         k = self.k_proj(k).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
         v = self.v_proj(v).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
 
-        # Обчислення уваги
         scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
         
         if mask is not None:
@@ -122,7 +118,6 @@ class MultiHeadAttention(nn.Module):
         attn = F.softmax(scores, dim=-1)
         attn = self.dropout(attn)
         
-        # Згортка зі значеннями
         out = torch.matmul(attn, v)
         out = out.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
         
@@ -130,7 +125,7 @@ class MultiHeadAttention(nn.Module):
 
 
 class FeedForward(nn.Module):
-    """Двошаровий перцептрон."""
+    """Two-layer perceptron."""
 
     def __init__(
         self,
@@ -140,13 +135,13 @@ class FeedForward(nn.Module):
         bias: bool = True
     ):
         """
-        Ініціалізація.
+        Initialize.
 
         Args:
-            d_model: Розмірність моделі
-            d_ff: Розмірність прихованого шару
+            d_model: Model dimension
+            d_ff: Hidden layer dimension
             dropout: Dropout
-            bias: Використовувати зміщення
+            bias: Use bias
         """
         super().__init__()
         self.linear1 = nn.Linear(d_model, d_ff, bias=bias)
@@ -158,10 +153,10 @@ class FeedForward(nn.Module):
         Forward pass.
 
         Args:
-            x: Вхід [batch_size, seq_len, d_model]
+            x: Input [batch_size, seq_len, d_model]
 
         Returns:
-            Вихід [batch_size, seq_len, d_model]
+            Output [batch_size, seq_len, d_model]
         """
         x = F.gelu(self.linear1(x))
         x = self.dropout(x)
@@ -170,7 +165,7 @@ class FeedForward(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    """Блок трансформера."""
+    """Transformer block."""
 
     def __init__(
         self,
@@ -181,14 +176,14 @@ class TransformerBlock(nn.Module):
         bias: bool = True
     ):
         """
-        Ініціалізація.
+        Initialize.
 
         Args:
-            d_model: Розмірність моделі
-            n_heads: Кількість голів
-            d_ff: Розмірність FFN
+            d_model: Model dimension
+            n_heads: Number of heads
+            d_ff: FFN dimension
             dropout: Dropout
-            bias: Використовувати зміщення
+            bias: Use bias
         """
         super().__init__()
         self.self_attn = MultiHeadAttention(d_model, n_heads, dropout, bias)
@@ -209,18 +204,16 @@ class TransformerBlock(nn.Module):
         Forward pass.
 
         Args:
-            x: Вхід [batch_size, seq_len, d_model]
-            mask: Маска [batch_size, seq_len, seq_len]
+            x: Input [batch_size, seq_len, d_model]
+            mask: Mask [batch_size, seq_len, seq_len]
 
         Returns:
-            Вихід [batch_size, seq_len, d_model]
+            Output [batch_size, seq_len, d_model]
         """
-        # Self-attention
         attn_output = self.self_attn(x, x, x, mask)
         x = x + self.dropout1(attn_output)
         x = self.norm1(x)
 
-        # Feed-forward
         ff_output = self.feed_forward(x)
         x = x + self.dropout2(ff_output)
         x = self.norm2(x)
@@ -229,7 +222,7 @@ class TransformerBlock(nn.Module):
 
 
 class TransformerModel(nn.Module):
-    """Повна модель трансформера."""
+    """Full transformer model."""
 
     def __init__(
         self,
@@ -243,24 +236,19 @@ class TransformerModel(nn.Module):
         bias: bool = True
     ):
         """
-        Ініціалізація.
+        Initialize.
 
         Args:
-            vocab_size: Розмір словника
-            d_model: Розмірність моделі
-            n_heads: Кількість голів
-            n_layers: Кількість шарів
-            d_ff: Розмірність FFN
-            max_seq_len: Максимальна довжина послідовності
+            vocab_size: Vocabulary size
+            d_model: Model dimension
+            n_heads: Number of heads
+            n_layers: Number of layers
+            d_ff: FFN dimension
+            max_seq_len: Maximum sequence length
             dropout: Dropout
-            bias: Використовувати зміщення
+            bias: Use bias
         """
         super().__init__()
-        
-        self.vocab_size = vocab_size
-        self.d_model = d_model
-        self.max_seq_len = max_seq_len
-
         self.embedding = nn.Embedding(vocab_size, d_model)
         self.pos_encoding = PositionalEncoding(d_model, max_seq_len, dropout)
         
@@ -270,13 +258,15 @@ class TransformerModel(nn.Module):
         ])
         
         self.norm = nn.LayerNorm(d_model)
-        self.output = nn.Linear(d_model, vocab_size, bias=bias)
+        self.head = nn.Linear(d_model, vocab_size, bias=bias)
         
-        # Ініціалізація ваг
+        self.max_seq_len = max_seq_len
+        self.d_model = d_model
+        
         self.apply(self._init_weights)
 
     def _init_weights(self, module: nn.Module) -> None:
-        """Ініціалізація ваг."""
+        """Initialize weights."""
         if isinstance(module, nn.Linear):
             nn.init.xavier_uniform_(module.weight)
             if module.bias is not None:
@@ -293,42 +283,38 @@ class TransformerModel(nn.Module):
         Forward pass.
 
         Args:
-            x: Вхід [batch_size, seq_len]
-            mask: Маска [batch_size, seq_len, seq_len]
+            x: Input [batch_size, seq_len]
+            mask: Mask [batch_size, seq_len, seq_len]
 
         Returns:
-            Логіти [batch_size, seq_len, vocab_size]
+            Output [batch_size, seq_len, vocab_size]
         """
-        # Ембедінги + позиційне кодування
-        x = self.embedding(x)
+        x = self.embedding(x) * math.sqrt(self.d_model)
         x = self.pos_encoding(x)
-
-        # Трансформерні блоки
+        
         for block in self.blocks:
             x = block(x, mask)
-
-        # Вихідний шар
+        
         x = self.norm(x)
-        x = self.output(x)
-
+        x = self.head(x)
+        
         return x
 
     def _create_causal_mask(self, seq_len: int, device: torch.device) -> torch.Tensor:
         """
-        Створення каузальної маски.
+        Create causal mask.
 
         Args:
-            seq_len: Довжина послідовності
-            device: Пристрій
+            seq_len: Sequence length
+            device: Device
 
         Returns:
-            Маска [seq_len, seq_len]
+            Mask [seq_len, seq_len]
         """
-        mask = torch.triu(
-            torch.ones(seq_len, seq_len, device=device),
-            diagonal=1
-        ).bool()
-        return ~mask
+        mask = torch.triu(torch.ones(seq_len, seq_len, device=device), diagonal=1)
+        mask = mask.masked_fill(mask == 1, float("-inf"))
+        mask = mask.masked_fill(mask == 0, float(0.0))
+        return mask
 
     def generate(
         self,
@@ -341,43 +327,83 @@ class TransformerModel(nn.Module):
         beam_size: int = 1
     ) -> str:
         """
-        Генерація тексту.
+        Generate text.
 
         Args:
-            prompt: Початковий текст
-            tokenizer: Токенізатор
-            max_len: Максимальна довжина
-            temperature: Температура
-            top_k: Top-k sampling
-            top_p: Top-p sampling
-            beam_size: Розмір beam search
+            prompt: Input text
+            tokenizer: Tokenizer
+            max_len: Maximum length
+            temperature: Sampling temperature
+            top_k: Number of top tokens
+            top_p: Nucleus sampling threshold
+            beam_size: Beam size
 
         Returns:
-            Згенерований текст
+            Generated text
         """
-        # TODO: Реалізувати генерацію
-        return ""
+        self.eval()
+        device = next(self.parameters()).device
+        
+        input_ids = torch.tensor(
+            [tokenizer.encode(prompt)],
+            device=device
+        )
+        
+        with torch.no_grad():
+            for _ in range(max_len):
+                mask = self._create_causal_mask(
+                    input_ids.size(1),
+                    device
+                )
+                
+                logits = self(input_ids, mask)[:, -1, :]
+                logits = logits / temperature
+                
+                if top_k is not None:
+                    indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
+                    logits[indices_to_remove] = float("-inf")
+                
+                if top_p is not None:
+                    sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+                    cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+                    
+                    sorted_indices_to_remove = cumulative_probs > top_p
+                    sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                    sorted_indices_to_remove[..., 0] = 0
+                    
+                    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                    logits[indices_to_remove] = float("-inf")
+                
+                probs = F.softmax(logits, dim=-1)
+                next_token = torch.multinomial(probs, num_samples=1)
+                
+                input_ids = torch.cat([input_ids, next_token], dim=1)
+                
+                if next_token.item() == tokenizer.token_to_id["<eos>"]:
+                    break
+        
+        return tokenizer.decode(input_ids[0].tolist())
 
     def save(self, path: str) -> None:
         """
-        Збереження моделі.
+        Save model.
 
         Args:
-            path: Шлях до файлу
+            path: Path to file
         """
         torch.save(self.state_dict(), path)
 
     @classmethod
     def load(cls, path: str, **kwargs) -> "TransformerModel":
         """
-        Завантаження моделі.
+        Load model.
 
         Args:
-            path: Шлях до файлу
-            **kwargs: Параметри моделі
+            path: Path to file
+            **kwargs: Model parameters
 
         Returns:
-            Завантажена модель
+            Loaded model
         """
         model = cls(**kwargs)
         model.load_state_dict(torch.load(path))

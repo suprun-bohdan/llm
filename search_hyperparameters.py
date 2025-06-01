@@ -17,7 +17,6 @@ def parse_args():
     """Парсинг аргументів командного рядка."""
     parser = argparse.ArgumentParser(description="Пошук гіперпараметрів")
     
-    # Загальні параметри
     parser.add_argument(
         "--config",
         type=str,
@@ -91,11 +90,9 @@ def setup_logging(output_dir):
 def create_model_fn(config):
     """Створення функції для створення моделі."""
     def model_fn(**params):
-        # Оновлення конфігурації параметрами
         model_config = config["model"].copy()
         model_config.update(params)
         
-        # Створення моделі
         from model.model import TransformerModel
         return TransformerModel(**model_config)
     
@@ -104,27 +101,21 @@ def create_model_fn(config):
 
 def main():
     """Головна функція."""
-    # Парсинг аргументів
     args = parse_args()
     
-    # Налаштування логування
     logger = setup_logging(args.output_dir)
     logger.info("Початок пошуку гіперпараметрів")
     
-    # Завантаження конфігурації
     config = load_config(args.config)
     logger.info(f"Завантажено конфігурацію з {args.config}")
     
-    # Встановлення зерна
     torch.manual_seed(args.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
     
-    # Завантаження даних
     texts = load_data(args.data)
     logger.info(f"Завантажено {len(texts)} текстів")
     
-    # Створення токенізатора
     tokenizer = Tokenizer(
         vocab_size=config["tokenizer"]["vocab_size"],
         min_freq=config["tokenizer"]["min_freq"]
@@ -132,7 +123,6 @@ def main():
     tokenizer.train(texts)
     logger.info("Навчено токенізатор")
     
-    # Створення наборів даних
     train_dataset, val_dataset = create_dataset(
         texts,
         tokenizer,
@@ -140,7 +130,6 @@ def main():
         val_size=config["data"]["val_size"]
     )
     
-    # Створення завантажувачів
     train_loader, val_loader = create_dataloaders(
         train_dataset,
         val_dataset,
@@ -149,10 +138,8 @@ def main():
     )
     logger.info("Створено завантажувачі даних")
     
-    # Створення функції для моделі
     model_fn = create_model_fn(config)
     
-    # Створення пошуку
     if args.search_type == "optuna":
         search = HyperparameterSearch(
             model_fn=model_fn,
@@ -179,23 +166,19 @@ def main():
         )
         logger.info("Створено пошук по сітці")
     
-    # Запуск пошуку
     logger.info("Початок пошуку")
     results = search.run()
     
-    # Збереження результатів
     results_path = os.path.join(args.output_dir, "search_results.json")
     search.save_results(results_path)
     logger.info(f"Результати збережено у {results_path}")
     
-    # Виведення найкращих параметрів
     logger.info("Найкращі параметри:")
     for name, value in results["best_params"].items():
         logger.info(f"  {name}: {value}")
     
     logger.info(f"Найкраще значення метрики: {results['best_value']}")
     
-    # Збереження конфігурації з найкращими параметрами
     best_config = config.copy()
     best_config["model"].update(results["best_params"])
     

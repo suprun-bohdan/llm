@@ -74,7 +74,6 @@ def config_path(tmp_path):
 @pytest.fixture
 def data_path(tmp_path):
     """Фікстура для шляху до даних."""
-    # Створення випадкових текстів
     texts = [
         "Це тестовий текст для перевірки.",
         "Ще один тестовий текст.",
@@ -145,7 +144,6 @@ def test_setup_logging(output_dir):
     assert isinstance(logger, logging.Logger)
     assert logger.level == logging.INFO
     
-    # Перевірка створення файлу логу
     log_file = output_dir / "search.log"
     assert log_file.exists()
 
@@ -155,7 +153,6 @@ def test_create_model_fn(config_path):
     config = load_config(config_path)
     model_fn = create_model_fn(config)
     
-    # Перевірка створення моделі з параметрами за замовчуванням
     model = model_fn()
     assert isinstance(model, torch.nn.Module)
     assert model.d_model == 512
@@ -164,7 +161,6 @@ def test_create_model_fn(config_path):
     assert model.d_ff == 2048
     assert model.dropout == 0.1
     
-    # Перевірка створення моделі з новими параметрами
     model = model_fn(d_model=256, dropout=0.2)
     assert model.d_model == 256
     assert model.dropout == 0.2
@@ -188,7 +184,6 @@ def test_main_optuna(
     output_dir
 ):
     """Тест головної функції з optuna."""
-    # Налаштування моків
     mock_load_data.return_value = ["текст1", "текст2", "текст3"]
     mock_tokenizer.return_value = MagicMock()
     mock_create_dataset.return_value = (MagicMock(), MagicMock())
@@ -201,7 +196,6 @@ def test_main_optuna(
     }
     mock_hyperparameter_search.return_value = mock_search
     
-    # Запуск функції
     with patch(
         "sys.argv",
         [
@@ -215,7 +209,6 @@ def test_main_optuna(
     ):
         main()
     
-    # Перевірка викликів
     mock_load_data.assert_called_once_with(str(data_path))
     mock_tokenizer.assert_called_once()
     mock_create_dataset.assert_called_once()
@@ -224,7 +217,6 @@ def test_main_optuna(
     mock_grid_search.assert_not_called()
     mock_search.run.assert_called_once()
     
-    # Перевірка збереження результатів
     results_path = output_dir / "search_results.json"
     assert results_path.exists()
     
@@ -250,7 +242,6 @@ def test_main_grid(
     output_dir
 ):
     """Тест головної функції з grid search."""
-    # Налаштування моків
     mock_load_data.return_value = ["текст1", "текст2", "текст3"]
     mock_tokenizer.return_value = MagicMock()
     mock_create_dataset.return_value = (MagicMock(), MagicMock())
@@ -263,7 +254,6 @@ def test_main_grid(
     }
     mock_grid_search.return_value = mock_search
     
-    # Запуск функції
     with patch(
         "sys.argv",
         [
@@ -276,7 +266,6 @@ def test_main_grid(
     ):
         main()
     
-    # Перевірка викликів
     mock_load_data.assert_called_once_with(str(data_path))
     mock_tokenizer.assert_called_once()
     mock_create_dataset.assert_called_once()
@@ -285,7 +274,6 @@ def test_main_grid(
     mock_hyperparameter_search.assert_not_called()
     mock_search.run.assert_called_once()
     
-    # Перевірка збереження результатів
     results_path = output_dir / "search_results.json"
     assert results_path.exists()
     
@@ -295,7 +283,6 @@ def test_main_grid(
 
 def test_main_error_handling(config_path, data_path, output_dir):
     """Тест обробки помилок."""
-    # Запуск з некоректними аргументами
     with patch(
         "sys.argv",
         [
@@ -307,7 +294,6 @@ def test_main_error_handling(config_path, data_path, output_dir):
     ), pytest.raises(SystemExit):
         main()
     
-    # Запуск з некоректним типом пошуку
     with patch(
         "sys.argv",
         [

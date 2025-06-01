@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Сервіс для навчання
   train:
     build: .
     volumes:
@@ -13,7 +12,6 @@ services:
       - CUDA_VISIBLE_DEVICES=0
     command: train.py --config configs/default.yaml --data data/train.jsonl --output_dir output
 
-  # Сервіс для генерації
   generate:
     build: .
     volumes:
@@ -23,7 +21,6 @@ services:
       - CUDA_VISIBLE_DEVICES=0
     command: generate.py --model_dir output/model --prompt "привіт" --strategy top_p --temperature 0.8 --top_p 0.9 --num_return_sequences 3
 
-  # Сервіс для пошуку гіперпараметрів
   search:
     build: .
     volumes:
@@ -35,28 +32,24 @@ services:
       - CUDA_VISIBLE_DEVICES=0
     command: search_hyperparameters.py --config configs/hyperparameter_search.yaml --data data/train.jsonl --output_dir output/search --search_type optuna --n_trials 100 --timeout 3600
 
-  # Сервіс для тестування
   test:
     build: .
     volumes:
       - .:/app
     command: -m pytest tests/ -v --cov=model --cov-report=term-missing
 
-  # Сервіс для перевірки коду
   lint:
     build: .
     volumes:
       - .:/app
     command: -m flake8 model/ tests/ && python -m mypy model/ tests/ && python -m bandit -r model/ -c pyproject.toml && python -m ruff check model/ tests/
 
-  # Сервіс для форматування коду
   format:
     build: .
     volumes:
       - .:/app
     command: -m black model/ tests/ && python -m isort model/ tests/ && python -m ruff format model/ tests/
 
-  # Сервіс для документації
   docs:
     build: .
     volumes:
@@ -66,7 +59,6 @@ services:
       - "8000:8000"
     command: -m sphinx_autobuild docs/ docs/_build/html --host 0.0.0.0 --port 8000
 
-  # Сервіс для TensorBoard
   tensorboard:
     build: .
     volumes:
@@ -75,7 +67,6 @@ services:
       - "6006:6006"
     command: -m tensorboard.main --logdir logs --host 0.0.0.0 --port 6006
 
-  # Сервіс для Weights & Biases
   wandb:
     build: .
     volumes:

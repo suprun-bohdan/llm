@@ -29,11 +29,9 @@ class QuantizedLinear(nn.Module):
         self.bits = bits
         self.symmetric = symmetric
         
-        # Параметри квантизації
         self.register_buffer("scale", torch.ones(1))
         self.register_buffer("zero_point", torch.zeros(1))
         
-        # Квантизація ваг
         self._quantize_weights()
     
     def _quantize_weights(self):
@@ -41,18 +39,15 @@ class QuantizedLinear(nn.Module):
         weights = self.original.weight.data
         
         if self.symmetric:
-            # Симетрична квантизація
             abs_max = torch.max(torch.abs(weights))
             self.scale = abs_max / (2 ** (self.bits - 1) - 1)
             self.zero_point = torch.zeros_like(self.scale)
         else:
-            # Асиметрична квантизація
             min_val = torch.min(weights)
             max_val = torch.max(weights)
             self.scale = (max_val - min_val) / (2 ** self.bits - 1)
             self.zero_point = torch.round(-min_val / self.scale)
         
-        # Квантизація
         self.quantized_weights = torch.round(
             weights / self.scale + self.zero_point
         ).clamp(0, 2 ** self.bits - 1)
@@ -67,10 +62,8 @@ class QuantizedLinear(nn.Module):
         Returns:
             Вихідний тензор
         """
-        # Деквантизація ваг
         weights = (self.quantized_weights - self.zero_point) * self.scale
         
-        # Лінійне перетворення
         return F.linear(x, weights, self.original.bias)
 
 
@@ -98,11 +91,9 @@ class DynamicQuantizer:
         self.symmetric = symmetric
         self.per_channel = per_channel
         
-        # Параметри квантизації
         self.scales = {}
         self.zero_points = {}
         
-        # Квантизація моделі
         self._quantize_model()
     
     def _quantize_tensor(
@@ -121,15 +112,13 @@ class DynamicQuantizer:
             Кортеж (квантизований тензор, масштаб, нульова точка)
         """
         if self.per_channel:
-            # Квантизація по каналах
-            if len(tensor.shape) == 2:  # Лінійний шар
+            if len(tensor.shape) == 2:
                 scales = torch.max(torch.abs(tensor), dim=1)[0]
                 scales = scales / (2 ** (self.bits - 1) - 1)
                 zero_points = torch.zeros_like(scales)
             else:
                 raise ValueError("per_channel квантизація підтримується тільки для лінійних шарів")
         else:
-            # Квантизація всього тензора
             if self.symmetric:
                 abs_max = torch.max(torch.abs(tensor))
                 scales = abs_max / (2 ** (self.bits - 1) - 1)
@@ -140,7 +129,6 @@ class DynamicQuantizer:
                 scales = (max_val - min_val) / (2 ** self.bits - 1)
                 zero_points = torch.round(-min_val / scales)
         
-        # Квантизація
         quantized = torch.round(
             tensor / scales + zero_points
         ).clamp(0, 2 ** self.bits - 1)
@@ -151,7 +139,6 @@ class DynamicQuantizer:
         """Квантизація всієї моделі."""
         for name, module in self.model.named_modules():
             if isinstance(module, nn.Linear):
-                # Квантизація ваг
                 quantized, scale, zero_point = self._quantize_tensor(
                     module.weight.data,
                     f"{name}.weight"
@@ -160,7 +147,6 @@ class DynamicQuantizer:
                 self.zero_points[f"{name}.weight"] = zero_point
                 module.weight.data = quantized
                 
-                # Квантизація зміщення
                 if module.bias is not None:
                     quantized, scale, zero_point = self._quantize_tensor(
                         module.bias.data,
@@ -199,14 +185,11 @@ class DynamicQuantizer:
         Returns:
             Вихідний тензор
         """
-        # Квантизація входу
         quantized_x, x_scale, x_zero_point = self._quantize_tensor(x, "input")
         
-        # Прямий прохід через модель
         with torch.no_grad():
             out = self.model(quantized_x)
         
-        # Деквантизація виходу
         return self._dequantize_tensor(out, "output")
 
 
@@ -234,7 +217,6 @@ class QuantizationAwareTraining:
         self.symmetric = symmetric
         self.per_channel = per_channel
         
-        # Заміна лінійних шарів на квантизовані
         self._replace_layers()
     
     def _replace_layers(self):
@@ -253,10 +235,8 @@ class QuantizationAwareTraining:
     
     def prepare_for_training(self):
         """Підготовка моделі до навчання."""
-        # Встановлення режиму навчання
         self.model.train()
         
-        # Встановлення градієнтів для параметрів квантизації
         for module in self.model.modules():
             if isinstance(module, QuantizedLinear):
                 module.scale.requires_grad = True
@@ -264,10 +244,8 @@ class QuantizationAwareTraining:
     
     def prepare_for_inference(self):
         """Підготовка моделі до інференсу."""
-        # Встановлення режиму оцінки
         self.model.eval()
         
-        # Відключення градієнтів
         for module in self.model.modules():
             if isinstance(module, QuantizedLinear):
                 module.scale.requires_grad = False

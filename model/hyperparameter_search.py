@@ -63,7 +63,6 @@ class HyperparameterSearch:
         self.n_trials = n_trials
         self.timeout = timeout
         
-        # Створення дослідження
         self.study = create_study(
             study_name=study_name,
             storage=storage,
@@ -85,7 +84,6 @@ class HyperparameterSearch:
         Returns:
             Значення метрики
         """
-        # Вибір гіперпараметрів
         params = {}
         for name, space in self.param_space.items():
             if isinstance(space, list):
@@ -114,10 +112,8 @@ class HyperparameterSearch:
                 elif space["type"] == "categorical":
                     params[name] = trial.suggest_categorical(name, space["values"])
         
-        # Створення моделі
         model = self.model_fn(**params)
         
-        # Створення тренера
         trainer = Trainer(
             model=model,
             train_loader=self.train_loader,
@@ -125,17 +121,14 @@ class HyperparameterSearch:
             **params
         )
         
-        # Навчання
         try:
             trainer.train(
                 epochs=params.get("epochs", 10),
                 early_stopping_patience=params.get("early_stopping_patience", 3)
             )
             
-            # Отримання найкращої метрики
             best_metric = trainer.best_metrics[self.metric]
             
-            # Збереження додаткових метрик
             for name, value in trainer.best_metrics.items():
                 trial.set_user_attr(name, value)
             
@@ -158,11 +151,9 @@ class HyperparameterSearch:
             timeout=self.timeout
         )
         
-        # Отримання найкращих параметрів
         best_params = self.study.best_params
         best_value = self.study.best_value
         
-        # Збереження результатів
         results = {
             "best_params": best_params,
             "best_value": best_value,
@@ -194,10 +185,8 @@ class HyperparameterSearch:
         """
         results = self.run()
         
-        # Створення директорії
         os.makedirs(os.path.dirname(path), exist_ok=True)
         
-        # Збереження у JSON
         with open(path, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
         
@@ -246,10 +235,8 @@ class GridSearch:
         Returns:
             Кортеж (значення метрики, всі метрики)
         """
-        # Створення моделі
         model = self.model_fn(**params)
         
-        # Створення тренера
         trainer = Trainer(
             model=model,
             train_loader=self.train_loader,
@@ -257,13 +244,11 @@ class GridSearch:
             **params
         )
         
-        # Навчання
         trainer.train(
             epochs=params.get("epochs", 10),
             early_stopping_patience=params.get("early_stopping_patience", 3)
         )
         
-        # Отримання метрик
         metric_value = trainer.best_metrics[self.metric]
         all_metrics = trainer.best_metrics
         
@@ -281,7 +266,6 @@ class GridSearch:
         best_params = None
         best_metrics = None
         
-        # Перебір всіх комбінацій параметрів
         for params in ParameterGrid(self.param_grid):
             try:
                 self.logger.info(f"Оцінка параметрів: {params}")
@@ -294,7 +278,6 @@ class GridSearch:
                     "metrics": all_metrics
                 })
                 
-                # Оновлення найкращих параметрів
                 if (
                     (self.direction == "minimize" and metric_value < best_value) or
                     (self.direction == "maximize" and metric_value > best_value)
@@ -326,10 +309,8 @@ class GridSearch:
         """
         results = self.run()
         
-        # Створення директорії
         os.makedirs(os.path.dirname(path), exist_ok=True)
         
-        # Збереження у JSON
         with open(path, "w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
         

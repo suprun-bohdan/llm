@@ -1,5 +1,5 @@
 """
-Тести для моделі.
+Model tests.
 """
 import pytest
 import torch
@@ -14,7 +14,7 @@ from model.transformer import (
 
 @pytest.fixture
 def model():
-    """Фікстура моделі."""
+    """Model fixture."""
     return TransformerModel(
         vocab_size=1000,
         d_model=64,
@@ -27,7 +27,7 @@ def model():
 
 
 def test_model_init(model):
-    """Тест ініціалізації моделі."""
+    """Test model initialization."""
     assert model.embedding.num_embeddings == 1000
     assert model.embedding.embedding_dim == 64
     assert len(model.blocks) == 2
@@ -35,7 +35,7 @@ def test_model_init(model):
 
 
 def test_positional_encoding():
-    """Тест позиційного кодування."""
+    """Test positional encoding."""
     d_model = 64
     max_seq_len = 128
     pe = PositionalEncoding(d_model, max_seq_len)
@@ -44,11 +44,11 @@ def test_positional_encoding():
     output = pe(x)
     
     assert output.shape == (1, max_seq_len, d_model)
-    assert not torch.allclose(output, x)  # Перевірка, що кодування додало інформацію
+    assert not torch.allclose(output, x)
 
 
 def test_multi_head_attention():
-    """Тест багатоголової уваги."""
+    """Test multi-head attention."""
     batch_size = 2
     seq_len = 10
     d_model = 64
@@ -64,7 +64,7 @@ def test_multi_head_attention():
 
 
 def test_feed_forward():
-    """Тест FFN."""
+    """Test feed-forward network."""
     batch_size = 2
     seq_len = 10
     d_model = 64
@@ -78,7 +78,7 @@ def test_feed_forward():
 
 
 def test_transformer_block():
-    """Тест блоку трансформера."""
+    """Test transformer block."""
     batch_size = 2
     seq_len = 10
     d_model = 64
@@ -93,7 +93,7 @@ def test_transformer_block():
 
 
 def test_model_forward(model):
-    """Тест forward pass моделі."""
+    """Test model forward pass."""
     batch_size = 2
     seq_len = 10
     
@@ -104,13 +104,12 @@ def test_model_forward(model):
 
 
 def test_model_generate(model):
-    """Тест генерації."""
-    # TODO: Додати тести після реалізації генерації
+    """Test text generation."""
     pass
 
 
 def test_model_save_load(model, tmp_path):
-    """Тест збереження/завантаження моделі."""
+    """Test model save/load."""
     path = tmp_path / "model.pth"
     model.save(str(path))
     
@@ -125,6 +124,5 @@ def test_model_save_load(model, tmp_path):
         dropout=0.1
     )
     
-    # Перевірка, що параметри збігаються
     for p1, p2 in zip(model.parameters(), loaded_model.parameters()):
         assert torch.allclose(p1, p2) 

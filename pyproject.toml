@@ -7,8 +7,6 @@ line-length = 88
 target-version = ['py38']
 include = '\.pyi?$'
 extend-exclude = '''
-# A regex preceded with ^/ will apply only to files and directories
-# in the root of the project.
 ^/docs
 '''
 
@@ -77,17 +75,17 @@ skips = ["B101"]
 line-length = 88
 target-version = "py38"
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "C",   # flake8-comprehensions
-    "B",   # flake8-bugbear
-    "UP",  # pyupgrade
+    "E",
+    "W",
+    "F",
+    "I",
+    "C",
+    "B",
+    "UP",
 ]
 ignore = [
-    "E501",  # line length violations
-    "B008",  # do not perform function calls in argument defaults
+    "E501",
+    "B008",
 ]
 
 [tool.ruff.isort]

@@ -49,21 +49,17 @@ def test_quantized_linear(quantized_linear):
     """Тест квантизованого лінійного шару."""
     x = torch.randn(5, 10)
     
-    # Перевірка квантизації
     assert hasattr(quantized_linear, "scale")
     assert hasattr(quantized_linear, "zero_point")
     assert hasattr(quantized_linear, "quantized_weights")
     
-    # Перевірка прямого проходу
     out = quantized_linear(x)
     assert out.shape == (5, 20)
     
-    # Перевірка, що ваги квантизовані
     weights = quantized_linear.quantized_weights
     assert torch.all(weights >= 0)
     assert torch.all(weights < 2 ** 8)
     
-    # Перевірка симетричної квантизації
     quantized_linear_symmetric = QuantizedLinear(
         quantized_linear.original,
         bits=8,
@@ -71,7 +67,6 @@ def test_quantized_linear(quantized_linear):
     )
     assert torch.all(quantized_linear_symmetric.zero_point == 0)
     
-    # Перевірка асиметричної квантизації
     quantized_linear_asymmetric = QuantizedLinear(
         quantized_linear.original,
         bits=8,
@@ -84,15 +79,12 @@ def test_dynamic_quantizer(dynamic_quantizer):
     """Тест динамічного квантизатора."""
     x = torch.randn(5, 10)
     
-    # Перевірка квантизації моделі
     assert len(dynamic_quantizer.scales) > 0
     assert len(dynamic_quantizer.zero_points) > 0
     
-    # Перевірка прямого проходу
     out = dynamic_quantizer.forward(x)
     assert out.shape == (5, 10)
     
-    # Перевірка квантизації по каналах
     quantizer_per_channel = DynamicQuantizer(
         dynamic_quantizer.model,
         bits=8,
@@ -100,17 +92,15 @@ def test_dynamic_quantizer(dynamic_quantizer):
     )
     assert len(quantizer_per_channel.scales) > 0
     
-    # Перевірка квантизації тензора
     tensor = torch.randn(10, 20)
     quantized, scale, zero_point = quantizer_per_channel._quantize_tensor(
         tensor,
         "test"
     )
     assert quantized.shape == tensor.shape
-    assert scale.shape == (10,)  # По каналах
+    assert scale.shape == (10,)
     assert zero_point.shape == (10,)
     
-    # Перевірка деквантизації
     dequantized = quantizer_per_channel._dequantize_tensor(
         quantized,
         "test"
@@ -122,31 +112,26 @@ def test_quantization_aware_training(qat):
     """Тест квантизації з навчанням."""
     x = torch.randn(5, 10)
     
-    # Перевірка заміни шарів
     for module in qat.model.modules():
         if isinstance(module, QuantizedLinear):
             assert hasattr(module, "scale")
             assert hasattr(module, "zero_point")
     
-    # Перевірка підготовки до навчання
     qat.prepare_for_training()
     for module in qat.model.modules():
         if isinstance(module, QuantizedLinear):
             assert module.scale.requires_grad
             assert module.zero_point.requires_grad
     
-    # Перевірка підготовки до інференсу
     qat.prepare_for_inference()
     for module in qat.model.modules():
         if isinstance(module, QuantizedLinear):
             assert not module.scale.requires_grad
             assert not module.zero_point.requires_grad
     
-    # Перевірка прямого проходу
     out = qat.forward(x)
     assert out.shape == (5, 10)
     
-    # Перевірка різних бітності
     qat_4bit = QuantizationAwareTraining(
         qat.model,
         bits=4
@@ -155,7 +140,6 @@ def test_quantization_aware_training(qat):
         if isinstance(module, QuantizedLinear):
             assert module.bits == 4
     
-    # Перевірка квантизації по каналах
     qat_per_channel = QuantizationAwareTraining(
         qat.model,
         bits=8,

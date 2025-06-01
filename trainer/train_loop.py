@@ -1,5 +1,5 @@
 """
-Цикл навчання моделі.
+Model training loop.
 """
 import os
 import json
@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 
 class Trainer:
-    """Тренер моделі."""
+    """Model trainer."""
 
     def __init__(
         self,
@@ -26,14 +26,14 @@ class Trainer:
         device: str = "cuda" if torch.cuda.is_available() else "cpu"
     ):
         """
-        Ініціалізація.
+        Initialize.
 
         Args:
-            model: Модель
-            train_loader: Завантажувач тренувальних даних
-            val_loader: Завантажувач валідаційних даних
-            config: Конфігурація
-            device: Пристрій
+            model: Model
+            train_loader: Training data loader
+            val_loader: Validation data loader
+            config: Configuration
+            device: Device
         """
         self.model = model.to(device)
         self.train_loader = train_loader
@@ -41,36 +41,32 @@ class Trainer:
         self.config = config or {}
         self.device = device
 
-        # Оптимізатор
         self.optimizer = AdamW(
             model.parameters(),
             lr=self.config.get("learning_rate", 3e-4),
             weight_decay=self.config.get("weight_decay", 0.01)
         )
 
-        # Планувальник
         self.scheduler = CosineAnnealingWarmRestarts(
             self.optimizer,
             T_0=self.config.get("warmup_steps", 1000),
             T_mult=1
         )
 
-        # Логування
         self.writer = SummaryWriter(
             log_dir=self.config.get("log_dir", "runs")
         )
 
-        # Метрики
         self.best_val_loss = float("inf")
         self.global_step = 0
         self.epoch = 0
 
     def train_epoch(self) -> float:
         """
-        Навчання на одній епосі.
+        Train for one epoch.
 
         Returns:
-            Середня втрата
+            Average loss
         """
         self.model.train()
         total_loss = 0
@@ -78,25 +74,21 @@ class Trainer:
 
         with tqdm(self.train_loader, desc=f"Epoch {self.epoch}") as pbar:
             for batch in pbar:
-                # Перенесення даних на пристрій
                 input_ids = batch["input_ids"].to(self.device)
                 labels = batch["labels"].to(self.device)
                 attention_mask = batch.get("attention_mask", None)
                 if attention_mask is not None:
                     attention_mask = attention_mask.to(self.device)
 
-                # Forward pass
                 outputs = self.model(input_ids, attention_mask)
                 loss = nn.CrossEntropyLoss()(
                     outputs.view(-1, outputs.size(-1)),
                     labels.view(-1)
                 )
 
-                # Backward pass
                 self.optimizer.zero_grad()
                 loss.backward()
                 
-                # Градієнтний кліпінг
                 if self.config.get("gradient_clip", 0) > 0:
                     torch.nn.utils.clip_grad_norm_(
                         self.model.parameters(),
@@ -106,11 +98,9 @@ class Trainer:
                 self.optimizer.step()
                 self.scheduler.step()
 
-                # Оновлення метрик
                 total_loss += loss.item()
                 self.global_step += 1
 
-                # Логування
                 if self.global_step % self.config.get("log_interval", 100) == 0:
                     self.writer.add_scalar(
                         "train/loss",
@@ -123,13 +113,11 @@ class Trainer:
                         self.global_step
                     )
 
-                # Оновлення прогресу
                 pbar.set_postfix({
                     "loss": f"{loss.item():.4f}",
                     "lr": f"{self.scheduler.get_last_lr()[0]:.2e}"
                 })
 
-                # Валідація
                 if (
                     self.val_loader is not None
                     and self.global_step % self.config.get("validation_interval", 1000) == 0
@@ -141,12 +129,10 @@ class Trainer:
                         self.global_step
                     )
 
-                    # Збереження найкращої моделі
                     if val_loss < self.best_val_loss:
                         self.best_val_loss = val_loss
                         self.save_checkpoint("model_best.pth")
 
-                # Збереження чекпоінту
                 if (
                     self.global_step % self.config.get("checkpoint_interval", 5000) == 0
                 ):
@@ -157,24 +143,22 @@ class Trainer:
     @torch.no_grad()
     def validate(self) -> float:
         """
-        Валідація моделі.
+        Validate model.
 
         Returns:
-            Середня втрата
+            Average loss
         """
         self.model.eval()
         total_loss = 0
         num_batches = len(self.val_loader)
 
         for batch in self.val_loader:
-            # Перенесення даних на пристрій
             input_ids = batch["input_ids"].to(self.device)
             labels = batch["labels"].to(self.device)
             attention_mask = batch.get("attention_mask", None)
             if attention_mask is not None:
                 attention_mask = attention_mask.to(self.device)
 
-            # Forward pass
             outputs = self.model(input_ids, attention_mask)
             loss = nn.CrossEntropyLoss()(
                 outputs.view(-1, outputs.size(-1)),
@@ -188,10 +172,10 @@ class Trainer:
 
     def save_checkpoint(self, path: str) -> None:
         """
-        Збереження чекпоінту.
+        Save checkpoint.
 
         Args:
-            path: Шлях до файлу
+            path: Path to file
         """
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
@@ -209,10 +193,10 @@ class Trainer:
 
     def load_checkpoint(self, path: str) -> None:
         """
-        Завантаження чекпоінту.
+        Load checkpoint.
 
         Args:
-            path: Шлях до файлу
+            path: Path to file
         """
         checkpoint = torch.load(path)
 
@@ -226,28 +210,26 @@ class Trainer:
 
     def train(self, num_epochs: int) -> None:
         """
-        Навчання моделі.
+        Train model.
 
         Args:
-            num_epochs: Кількість епох
+            num_epochs: Number of epochs
         """
         try:
             for epoch in range(self.epoch, num_epochs):
                 self.epoch = epoch
                 train_loss = self.train_epoch()
 
-                # Логування епохи
                 self.writer.add_scalar(
                     "epoch/train_loss",
                     train_loss,
                     epoch
                 )
 
-                # Збереження чекпоінту в кінці епохи
                 self.save_checkpoint(f"checkpoint_epoch_{epoch}.pth")
 
         except KeyboardInterrupt:
-            print("\nНавчання перервано користувачем")
+            print("\nTraining interrupted by user")
             self.save_checkpoint("checkpoint_interrupted.pth")
 
         finally:

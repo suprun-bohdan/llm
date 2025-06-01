@@ -10,7 +10,6 @@ from tokenizer.simple_tokenizer import SimpleTokenizer
 @pytest.fixture
 def model_and_tokenizer():
     """Фікстура для моделі та токенізатора."""
-    # Параметри
     vocab_size = 1000
     d_model = 64
     n_heads = 4
@@ -18,7 +17,6 @@ def model_and_tokenizer():
     d_ff = 256
     max_seq_len = 32
     
-    # Створення моделі
     model = TransformerModel(
         vocab_size=vocab_size,
         d_model=d_model,
@@ -28,14 +26,12 @@ def model_and_tokenizer():
         max_seq_len=max_seq_len
     )
     
-    # Створення токенізатора
     tokenizer = SimpleTokenizer(
         vocab_size=vocab_size,
         min_freq=2,
         special_tokens=["<pad>", "<unk>", "<bos>", "<eos>"]
     )
     
-    # Навчання токенізатора на простому корпусі
     texts = [
         "привіт світ",
         "привіт світ",
@@ -54,25 +50,22 @@ def test_greedy_sampling(model_and_tokenizer):
     model, tokenizer = model_and_tokenizer
     model.eval()
     
-    # Підготовка вхідних даних
     input_text = "привіт"
     input_ids = torch.tensor([tokenizer.encode(input_text)])
     
-    # Генерація
     with torch.no_grad():
         output_ids = model.generate(
             input_ids=input_ids,
             max_length=10,
             strategy="greedy",
-            temperature=0.0,  # Жадібна вибірка
+            temperature=0.0,
             pad_token_id=tokenizer.token_to_id["<pad>"],
             eos_token_id=tokenizer.token_to_id["<eos>"]
         )
     
-    # Перевірки
-    assert output_ids.shape[0] == 1  # batch_size
-    assert output_ids.shape[1] == 10  # max_length
-    assert output_ids[0, 0] == input_ids[0, 0]  # Перший токен зберігається
+    assert output_ids.shape[0] == 1
+    assert output_ids.shape[1] == 10
+    assert output_ids[0, 0] == input_ids[0, 0]
     assert all(id_ != tokenizer.token_to_id["<pad>"] for id_ in output_ids[0, :len(input_ids[0])])
 
 
@@ -81,11 +74,9 @@ def test_temperature_sampling(model_and_tokenizer):
     model, tokenizer = model_and_tokenizer
     model.eval()
     
-    # Підготовка вхідних даних
     input_text = "привіт"
     input_ids = torch.tensor([tokenizer.encode(input_text)])
     
-    # Генерація з різними температурами
     temperatures = [0.5, 1.0, 2.0]
     outputs = []
     
@@ -101,13 +92,11 @@ def test_temperature_sampling(model_and_tokenizer):
             )
             outputs.append(output_ids)
     
-    # Перевірки
     for output_ids in outputs:
         assert output_ids.shape[0] == 1
         assert output_ids.shape[1] == 10
         assert output_ids[0, 0] == input_ids[0, 0]
     
-    # При високій температурі послідовності повинні відрізнятися
     if torch.cuda.is_available():
         assert not torch.allclose(outputs[0], outputs[2])
 
@@ -117,11 +106,9 @@ def test_top_k_sampling(model_and_tokenizer):
     model, tokenizer = model_and_tokenizer
     model.eval()
     
-    # Підготовка вхідних даних
     input_text = "привіт"
     input_ids = torch.tensor([tokenizer.encode(input_text)])
     
-    # Генерація з різними k
     k_values = [1, 5, 10]
     outputs = []
     
@@ -138,13 +125,11 @@ def test_top_k_sampling(model_and_tokenizer):
             )
             outputs.append(output_ids)
     
-    # Перевірки
     for output_ids in outputs:
         assert output_ids.shape[0] == 1
         assert output_ids.shape[1] == 10
         assert output_ids[0, 0] == input_ids[0, 0]
     
-    # При k=1 результат повинен бути таким самим як при жадібній вибірці
     greedy_output = model.generate(
         input_ids=input_ids,
         max_length=10,
@@ -161,11 +146,9 @@ def test_top_p_sampling(model_and_tokenizer):
     model, tokenizer = model_and_tokenizer
     model.eval()
     
-    # Підготовка вхідних даних
     input_text = "привіт"
     input_ids = torch.tensor([tokenizer.encode(input_text)])
     
-    # Генерація з різними p
     p_values = [0.1, 0.5, 0.9]
     outputs = []
     
@@ -182,13 +165,11 @@ def test_top_p_sampling(model_and_tokenizer):
             )
             outputs.append(output_ids)
     
-    # Перевірки
     for output_ids in outputs:
         assert output_ids.shape[0] == 1
         assert output_ids.shape[1] == 10
         assert output_ids[0, 0] == input_ids[0, 0]
     
-    # При p=1.0 результат повинен бути таким самим як при звичайній вибірці
     normal_output = model.generate(
         input_ids=input_ids,
         max_length=10,
@@ -205,11 +186,9 @@ def test_beam_search(model_and_tokenizer):
     model, tokenizer = model_and_tokenizer
     model.eval()
     
-    # Підготовка вхідних даних
     input_text = "привіт"
     input_ids = torch.tensor([tokenizer.encode(input_text)])
     
-    # Генерація з різними розмірами променя
     beam_sizes = [1, 2, 4]
     outputs = []
     
@@ -227,13 +206,11 @@ def test_beam_search(model_and_tokenizer):
             )
             outputs.append(output_ids)
     
-    # Перевірки
     for output_ids in outputs:
         assert output_ids.shape[0] == 1
         assert output_ids.shape[1] == 10
         assert output_ids[0, 0] == input_ids[0, 0]
     
-    # При beam_size=1 результат повинен бути таким самим як при жадібній вибірці
     greedy_output = model.generate(
         input_ids=input_ids,
         max_length=10,
@@ -250,11 +227,9 @@ def test_repetition_penalty(model_and_tokenizer):
     model, tokenizer = model_and_tokenizer
     model.eval()
     
-    # Підготовка вхідних даних
-    input_text = "привіт привіт"  # Навмисне повторення
+    input_text = "привіт привіт"
     input_ids = torch.tensor([tokenizer.encode(input_text)])
     
-    # Генерація з різними штрафами
     penalties = [1.0, 2.0, 5.0]
     outputs = []
     
@@ -271,15 +246,13 @@ def test_repetition_penalty(model_and_tokenizer):
             )
             outputs.append(output_ids)
     
-    # Перевірки
     for output_ids in outputs:
         assert output_ids.shape[0] == 1
         assert output_ids.shape[1] == 10
         assert output_ids[0, 0] == input_ids[0, 0]
     
-    # При високому штрафі кількість повторень повинна зменшитися
     def count_repetitions(ids):
-        ids = ids[0].tolist()  # Беремо першу послідовність
+        ids = ids[0].tolist()
         return sum(1 for i in range(len(ids)-1) if ids[i] == ids[i+1])
     
     reps = [count_repetitions(output) for output in outputs]
@@ -291,11 +264,9 @@ def test_invalid_strategy(model_and_tokenizer):
     model, tokenizer = model_and_tokenizer
     model.eval()
     
-    # Підготовка вхідних даних
     input_text = "привіт"
     input_ids = torch.tensor([tokenizer.encode(input_text)])
     
-    # Спроба використання невалідної стратегії
     with pytest.raises(ValueError):
         with torch.no_grad():
             model.generate(
@@ -312,12 +283,10 @@ def test_eos_token_handling(model_and_tokenizer):
     model, tokenizer = model_and_tokenizer
     model.eval()
     
-    # Підготовка вхідних даних з EOS токеном
     input_text = "привіт"
     input_ids = torch.tensor([tokenizer.encode(input_text)])
-    input_ids[0, -1] = tokenizer.token_to_id["<eos>"]  # Додаємо EOS токен
+    input_ids[0, -1] = tokenizer.token_to_id["<eos>"]
     
-    # Генерація
     with torch.no_grad():
         output_ids = model.generate(
             input_ids=input_ids,
@@ -328,8 +297,7 @@ def test_eos_token_handling(model_and_tokenizer):
             eos_token_id=tokenizer.token_to_id["<eos>"]
         )
     
-    # Перевірки
     assert output_ids.shape[0] == 1
     assert output_ids.shape[1] == 10
     assert output_ids[0, 0] == input_ids[0, 0]
-    assert output_ids[0, -1] == tokenizer.token_to_id["<pad>"]  # Останній токен - падінгування 
+    assert output_ids[0, -1] == tokenizer.token_to_id["<pad>"]

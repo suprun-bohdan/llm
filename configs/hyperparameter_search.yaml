@@ -1,63 +1,48 @@
-# Конфігурація для пошуку гіперпараметрів
 
-# Параметри моделі
 model:
-  # Розміри моделі
-  d_model: 512  # Розмірність моделі
-  n_heads: 8    # Кількість голів уваги
-  n_layers: 6   # Кількість шарів
-  d_ff: 2048    # Розмірність прямого шару
-  dropout: 0.1  # Ймовірність дропауту
+  d_model: 512
+  n_heads: 8
+  n_layers: 6
+  d_ff: 2048
+  dropout: 0.1
   
-  # Оптимізації
-  use_reversible: true      # Використання оборотних блоків
-  use_weight_sharing: true  # Використання спільного зважування
-  use_low_rank: true        # Використання низькорозмірних матриць
-  rank_factor: 0.25         # Фактор рангу для низькорозмірних матриць
+  use_reversible: true
+  use_weight_sharing: true
+  use_low_rank: true
+  rank_factor: 0.25
   
-  # Квантизація
-  use_quantization: true    # Використання квантизації
-  bits: 8                   # Кількість біт для квантизації
-  symmetric: true           # Симетрична квантизація
+  use_quantization: true
+  bits: 8
+  symmetric: true
   
-  # Прунінг
-  use_pruning: true         # Використання прунінгу
-  pruning_threshold: 0.01   # Поріг прунінгу
-  pruning_frequency: 1000   # Частота прунінгу
+  use_pruning: true
+  pruning_threshold: 0.01
+  pruning_frequency: 1000
   
-  # Зовнішня пам'ять
-  use_memory_bank: true     # Використання банку пам'яті
-  memory_size: 10000        # Розмір банку пам'яті
-  memory_dim: 512           # Розмірність векторів у банку пам'яті
+  use_memory_bank: true
+  memory_size: 10000
+  memory_dim: 512
 
-# Параметри токенізатора
 tokenizer:
-  vocab_size: 32000  # Розмір словника
-  min_freq: 2        # Мінімальна частота токена
+  vocab_size: 32000
+  min_freq: 2
 
-# Параметри даних
 data:
-  max_length: 512    # Максимальна довжина послідовності
-  val_size: 0.1      # Розмір валідаційного набору
+  max_length: 512
+  val_size: 0.1
 
-# Параметри навчання
 training:
-  batch_size: 32     # Розмір батчу
-  num_workers: 4     # Кількість робочих процесів
-  gradient_clip: 1.0 # Обрізання градієнтів
+  batch_size: 32
+  num_workers: 4
+  gradient_clip: 1.0
 
-# Параметри пошуку гіперпараметрів
 hyperparameter_search:
-  # Метрика для оптимізації
   metric: "val_loss"
   direction: "minimize"
   
-  # Назва дослідження
   study_name: "transformer_search"
   
-  # Простір параметрів для optuna
   param_space:
-    # Розміри моделі
     d_model:
       type: "int"
       min: 256
@@ -82,13 +67,11 @@ hyperparameter_search:
       max: 4096
       step: 512
     
-    # Ймовірності дропауту
     dropout:
       type: "float"
       min: 0.1
       max: 0.5
     
-    # Параметри оптимізації
     learning_rate:
       type: "float"
       min: 1e-5
@@ -101,61 +84,47 @@ hyperparameter_search:
       max: 1e-3
       log: true
     
-    # Параметри квантизації
     bits:
       type: "categorical"
       values: [4, 8, 16]
     
-    # Параметри прунінгу
     pruning_threshold:
       type: "float"
       min: 0.001
       max: 0.1
       log: true
     
-    # Параметри банку пам'яті
     memory_size:
       type: "int"
       min: 1000
       max: 100000
       step: 1000
     
-    # Оптимізатор
     optimizer:
       type: "categorical"
       values: ["adam", "adamw", "sgd"]
     
-    # Розмір батчу
     batch_size:
       type: "categorical"
       values: [16, 32, 64, 128]
   
-  # Сітка параметрів для grid search
   param_grid:
-    # Розміри моделі
     d_model: [256, 512, 1024]
     n_heads: [4, 8, 16]
     n_layers: [4, 6, 8]
     d_ff: [1024, 2048, 4096]
     
-    # Ймовірності дропауту
     dropout: [0.1, 0.2, 0.3]
     
-    # Параметри оптимізації
     learning_rate: [1e-5, 1e-4, 1e-3]
     weight_decay: [1e-5, 1e-4, 1e-3]
     
-    # Параметри квантизації
     bits: [4, 8, 16]
     
-    # Параметри прунінгу
     pruning_threshold: [0.001, 0.01, 0.1]
     
-    # Параметри банку пам'яті
     memory_size: [1000, 10000, 100000]
     
-    # Оптимізатор
     optimizer: ["adam", "adamw", "sgd"]
     
-    # Розмір батчу
     batch_size: [16, 32, 64, 128] 

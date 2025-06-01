@@ -1,5 +1,5 @@
 """
-Реалізація тренера моделі.
+Model trainer implementation.
 """
 import os
 import time
@@ -17,7 +17,7 @@ from utils.logger import setup_logger
 
 
 class Trainer:
-    """Тренер для навчання трансформера."""
+    """Transformer trainer."""
 
     def __init__(
         self,
@@ -38,24 +38,24 @@ class Trainer:
         early_stopping_patience: int = 3
     ):
         """
-        Ініціалізація тренера.
+        Initialize trainer.
 
         Args:
-            model: Модель для навчання
-            tokenizer: Токенізатор
-            train_dataloader: Завантажувач тренувальних даних
-            val_dataloader: Завантажувач валідаційних даних
-            device: Пристрій для навчання
-            learning_rate: Швидкість навчання
-            weight_decay: Ваговий розпад
-            warmup_steps: Кількість кроків для розігріву
-            max_grad_norm: Максимальна норма градієнта
-            checkpoint_dir: Директорія для збереження чекпоінтів
-            log_dir: Директорія для логів
-            save_every: Частота збереження чекпоінтів
-            eval_every: Частота валідації
-            max_epochs: Максимальна кількість епох
-            early_stopping_patience: Терпіння для раннього зупинки
+            model: Model to train
+            tokenizer: Tokenizer
+            train_dataloader: Training data loader
+            val_dataloader: Validation data loader
+            device: Training device
+            learning_rate: Learning rate
+            weight_decay: Weight decay
+            warmup_steps: Number of warmup steps
+            max_grad_norm: Maximum gradient norm
+            checkpoint_dir: Checkpoint directory
+            log_dir: Log directory
+            save_every: Checkpoint save frequency
+            eval_every: Validation frequency
+            max_epochs: Maximum number of epochs
+            early_stopping_patience: Early stopping patience
         """
         self.model = model.to(device)
         self.tokenizer = tokenizer
@@ -63,14 +63,12 @@ class Trainer:
         self.val_dataloader = val_dataloader
         self.device = device
         
-        # Оптимізатор
         self.optimizer = AdamW(
             model.parameters(),
             lr=learning_rate,
             weight_decay=weight_decay
         )
         
-        # Планувальник швидкості навчання
         total_steps = len(train_dataloader) * max_epochs
         self.scheduler = CosineAnnealingLR(
             self.optimizer,
@@ -78,10 +76,8 @@ class Trainer:
             eta_min=learning_rate * 0.1
         )
         
-        # Критерій втрат
         self.criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.token_to_id["<pad>"])
         
-        # Параметри навчання
         self.max_grad_norm = max_grad_norm
         self.checkpoint_dir = checkpoint_dir
         self.log_dir = log_dir
@@ -90,24 +86,20 @@ class Trainer:
         self.max_epochs = max_epochs
         self.early_stopping_patience = early_stopping_patience
         
-        # Створення директорій
         os.makedirs(checkpoint_dir, exist_ok=True)
         os.makedirs(log_dir, exist_ok=True)
         
-        # Логування
         self.logger = setup_logger(
             name="trainer",
             log_dir=log_dir,
             log_file="train.log"
         )
         
-        # Метрики
         self.best_val_loss = float("inf")
         self.epoch = 0
         self.step = 0
         self.patience_counter = 0
         
-        # Історія навчання
         self.history = {
             "train_loss": [],
             "val_loss": [],
@@ -116,16 +108,15 @@ class Trainer:
 
     def train_epoch(self) -> float:
         """
-        Навчання на одній епосі.
+        Train for one epoch.
 
         Returns:
-            Середня втрата на епосі
+            Average epoch loss
         """
         self.model.train()
         total_loss = 0
         num_batches = len(self.train_dataloader)
         
-        # Прогрес-бар
         pbar = tqdm(
             self.train_dataloader,
             desc=f"Epoch {self.epoch + 1}/{self.max_epochs}",
@@ -133,53 +124,43 @@ class Trainer:
         )
         
         for batch in pbar:
-            # Перенесення батчу на пристрій
             batch = {k: v.to(self.device) for k, v in batch.items()}
             
-            # Прямий прохід
             logits = self.model(
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"]
             )
             
-            # Розрахунок втрат
             loss = self.criterion(
                 logits.view(-1, logits.size(-1)),
                 batch["target_ids"].view(-1)
             )
             
-            # Зворотній прохід
             self.optimizer.zero_grad()
             loss.backward()
             
-            # Обрізання градієнтів
             torch.nn.utils.clip_grad_norm_(
                 self.model.parameters(),
                 self.max_grad_norm
             )
             
-            # Оновлення параметрів
             self.optimizer.step()
             self.scheduler.step()
             
-            # Оновлення метрик
             total_loss += loss.item()
             self.step += 1
             
-            # Оновлення прогрес-бару
             pbar.set_postfix({
                 "loss": f"{loss.item():.4f}",
                 "lr": f"{self.scheduler.get_last_lr()[0]:.2e}"
             })
             
-            # Валідація
             if self.val_dataloader and self.step % self.eval_every == 0:
                 val_loss = self.evaluate()
                 self.logger.info(
                     f"Step {self.step}: val_loss = {val_loss:.4f}"
                 )
                 
-                # Збереження найкращої моделі
                 if val_loss < self.best_val_loss:
                     self.best_val_loss = val_loss
                     self.save_checkpoint("best_model.pt")
@@ -187,11 +168,9 @@ class Trainer:
                 else:
                     self.patience_counter += 1
             
-            # Збереження чекпоінту
             if self.step % self.save_every == 0:
                 self.save_checkpoint(f"checkpoint_{self.step}.pt")
         
-        # Розрахунок середньої втрати
         avg_loss = total_loss / num_batches
         self.history["train_loss"].append(avg_loss)
         self.history["learning_rates"].append(self.scheduler.get_last_lr()[0])
@@ -201,10 +180,10 @@ class Trainer:
     @torch.no_grad()
     def evaluate(self) -> float:
         """
-        Валідація моделі.
+        Validate model.
 
         Returns:
-            Середня втрата на валідаційному наборі
+            Average validation loss
         """
         if not self.val_dataloader:
             return float("inf")
@@ -214,16 +193,13 @@ class Trainer:
         num_batches = len(self.val_dataloader)
         
         for batch in self.val_dataloader:
-            # Перенесення батчу на пристрій
             batch = {k: v.to(self.device) for k, v in batch.items()}
             
-            # Прямий прохід
             logits = self.model(
                 input_ids=batch["input_ids"],
                 attention_mask=batch["attention_mask"]
             )
             
-            # Розрахунок втрат
             loss = self.criterion(
                 logits.view(-1, logits.size(-1)),
                 batch["target_ids"].view(-1)
@@ -231,7 +207,6 @@ class Trainer:
             
             total_loss += loss.item()
         
-        # Розрахунок середньої втрати
         avg_loss = total_loss / num_batches
         self.history["val_loss"].append(avg_loss)
         
@@ -239,25 +214,22 @@ class Trainer:
 
     def train(self) -> Dict[str, List[float]]:
         """
-        Навчання моделі.
+        Train model.
 
         Returns:
-            Історія навчання
+            Training history
         """
-        self.logger.info("Початок навчання")
+        self.logger.info("Starting training")
         start_time = time.time()
         
         try:
             for epoch in range(self.max_epochs):
                 self.epoch = epoch
                 
-                # Навчання на епосі
                 train_loss = self.train_epoch()
                 
-                # Валідація
                 val_loss = self.evaluate()
                 
-                # Логування
                 self.logger.info(
                     f"Epoch {epoch + 1}/{self.max_epochs}: "
                     f"train_loss = {train_loss:.4f}, "
@@ -265,75 +237,65 @@ class Trainer:
                     f"lr = {self.scheduler.get_last_lr()[0]:.2e}"
                 )
                 
-                # Перевірка раннього зупинки
                 if self.patience_counter >= self.early_stopping_patience:
                     self.logger.info(
-                        f"Раннє зупинка на епосі {epoch + 1} "
-                        f"через відсутність покращення"
+                        f"Early stopping at epoch {epoch + 1} "
+                        f"due to no improvement"
                     )
                     break
         
         except KeyboardInterrupt:
-            self.logger.info("Навчання перервано користувачем")
+            self.logger.info("Training interrupted by user")
         
         finally:
-            # Збереження фінальної моделі
-            self.save_checkpoint("final_model.pt")
-            
-            # Логування часу навчання
             training_time = time.time() - start_time
             self.logger.info(
-                f"Навчання завершено за {training_time:.2f} секунд"
+                f"Training completed in {training_time:.2f} seconds"
             )
-        
-        return self.history
+            
+            return self.history
 
     def save_checkpoint(self, filename: str) -> None:
         """
-        Збереження чекпоінту.
+        Save checkpoint.
 
         Args:
-            filename: Назва файлу
+            filename: Checkpoint filename
         """
-        path = os.path.join(self.checkpoint_dir, filename)
-        
         checkpoint = {
-            "model_state": self.model.state_dict(),
-            "optimizer_state": self.optimizer.state_dict(),
-            "scheduler_state": self.scheduler.state_dict(),
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "scheduler_state_dict": self.scheduler.state_dict(),
             "epoch": self.epoch,
             "step": self.step,
             "best_val_loss": self.best_val_loss,
             "history": self.history
         }
         
+        path = os.path.join(self.checkpoint_dir, filename)
         torch.save(checkpoint, path)
-        self.logger.info(f"Збережено чекпоінт: {path}")
+        self.logger.info(f"Saved checkpoint to {path}")
 
     def load_checkpoint(self, filename: str) -> None:
         """
-        Завантаження чекпоінту.
+        Load checkpoint.
 
         Args:
-            filename: Назва файлу
+            filename: Checkpoint filename
         """
         path = os.path.join(self.checkpoint_dir, filename)
-        
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"Чекпоінт не знайдено: {path}")
-        
         checkpoint = torch.load(path, map_location=self.device)
         
-        self.model.load_state_dict(checkpoint["model_state"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state"])
-        self.scheduler.load_state_dict(checkpoint["scheduler_state"])
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
         
         self.epoch = checkpoint["epoch"]
         self.step = checkpoint["step"]
         self.best_val_loss = checkpoint["best_val_loss"]
         self.history = checkpoint["history"]
         
-        self.logger.info(f"Завантажено чекпоінт: {path}")
+        self.logger.info(f"Loaded checkpoint from {path}")
 
     def generate_text(
         self,
@@ -347,48 +309,30 @@ class Trainer:
         num_return_sequences: int = 1
     ) -> List[str]:
         """
-        Генерація тексту.
+        Generate text.
 
         Args:
-            prompt: Початковий текст
-            max_length: Максимальна довжина
-            strategy: Стратегія вибірки
-            temperature: Температура
-            top_k: Кількість найкращих токенів
-            top_p: Поріг для nucleus sampling
-            beam_size: Розмір променя
-            num_return_sequences: Кількість послідовностей
+            prompt: Input text
+            max_length: Maximum length
+            strategy: Generation strategy
+            temperature: Sampling temperature
+            top_k: Number of top tokens
+            top_p: Nucleus sampling threshold
+            beam_size: Beam size
+            num_return_sequences: Number of sequences to return
 
         Returns:
-            Список згенерованих текстів
+            List of generated texts
         """
         self.model.eval()
         
-        # Токенізація промпту
-        input_ids = torch.tensor(
-            [self.tokenizer.encode(prompt)],
-            device=self.device
-        )
-        
-        # Генерація
         with torch.no_grad():
-            output_ids = self.model.generate(
-                input_ids=input_ids,
-                max_length=max_length,
-                strategy=strategy,
+            return self.model.generate(
+                prompt=prompt,
+                tokenizer=self.tokenizer,
+                max_len=max_length,
                 temperature=temperature,
                 top_k=top_k,
                 top_p=top_p,
-                beam_size=beam_size,
-                num_return_sequences=num_return_sequences,
-                pad_token_id=self.tokenizer.token_to_id["<pad>"],
-                eos_token_id=self.tokenizer.token_to_id["<eos>"]
-            )
-        
-        # Детокенізація
-        texts = []
-        for ids in output_ids:
-            text = self.tokenizer.decode(ids.tolist())
-            texts.append(text)
-        
-        return texts 
+                beam_size=beam_size
+            ) 

@@ -1,5 +1,5 @@
 """
-Скрипт для навчання моделі.
+Script for model training.
 """
 import os
 import argparse
@@ -18,43 +18,43 @@ from utils.logger import setup_logger
 
 
 def parse_args():
-    """Парсинг аргументів командного рядка."""
+    """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Навчання трансформера"
+        description="Transformer training"
     )
     
     parser.add_argument(
         "--config",
         type=str,
         default="configs/default.yaml",
-        help="Шлях до конфігураційного файлу"
+        help="Path to configuration file"
     )
     
     parser.add_argument(
         "--data",
         type=str,
         required=True,
-        help="Шлях до файлу з даними (JSONL)"
+        help="Path to data file (JSONL)"
     )
     
     parser.add_argument(
         "--output_dir",
         type=str,
         default="output",
-        help="Директорія для збереження результатів"
+        help="Directory for saving results"
     )
     
     parser.add_argument(
         "--resume",
         type=str,
-        help="Шлях до чекпоінту для відновлення навчання"
+        help="Path to checkpoint for resuming training"
     )
     
     parser.add_argument(
         "--seed",
         type=int,
         default=42,
-        help="Зерно для відтворення результатів"
+        help="Seed for reproducibility"
     )
     
     return parser.parse_args()
@@ -62,13 +62,13 @@ def parse_args():
 
 def load_config(config_path: str) -> dict:
     """
-    Завантаження конфігурації.
+    Load configuration.
 
     Args:
-        config_path: Шлях до конфігураційного файлу
+        config_path: Path to configuration file
 
     Returns:
-        Словник з конфігурацією
+        Configuration dictionary
     """
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
@@ -77,15 +77,14 @@ def load_config(config_path: str) -> dict:
 
 def setup_directories(output_dir: str) -> tuple:
     """
-    Створення директорій для збереження результатів.
+    Create directories for saving results.
 
     Args:
-        output_dir: Базова директорія
+        output_dir: Base directory
 
     Returns:
-        Кортеж з шляхами до директорій
+        Tuple with directory paths
     """
-    # Створення директорій
     checkpoint_dir = os.path.join(output_dir, "checkpoints")
     log_dir = os.path.join(output_dir, "logs")
     model_dir = os.path.join(output_dir, "model")
@@ -97,40 +96,33 @@ def setup_directories(output_dir: str) -> tuple:
 
 
 def main():
-    """Головна функція."""
-    # Парсинг аргументів
+    """Main function."""
     args = parse_args()
     
-    # Налаштування логування
     logger = setup_logger(
         name="train",
         log_dir=os.path.join(args.output_dir, "logs"),
         log_file="train.log"
     )
     
-    # Завантаження конфігурації
     config = load_config(args.config)
-    logger.info(f"Завантажено конфігурацію з {args.config}")
+    logger.info(f"Loaded configuration from {args.config}")
     
-    # Створення директорій
     checkpoint_dir, log_dir, model_dir = setup_directories(args.output_dir)
-    logger.info(f"Створено директорії в {args.output_dir}")
+    logger.info(f"Created directories in {args.output_dir}")
     
-    # Встановлення зерна
     torch.manual_seed(args.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
-    logger.info(f"Встановлено зерно: {args.seed}")
+    logger.info(f"Set seed: {args.seed}")
     
-    # Завантаження даних
     texts = load_jsonl_dataset(
         file_path=args.data,
         text_field=config["data"]["text_field"],
         max_samples=config["data"].get("max_samples")
     )
-    logger.info(f"Завантажено {len(texts)} текстів")
+    logger.info(f"Loaded {len(texts)} texts")
     
-    # Розділення на тренувальний та валідаційний набори
     train_texts, val_texts, _ = split_dataset(
         texts=texts,
         train_ratio=config["data"]["train_ratio"],
@@ -139,26 +131,23 @@ def main():
         seed=args.seed
     )
     logger.info(
-        f"Розділено набори: "
-        f"тренувальний ({len(train_texts)}), "
-        f"валідаційний ({len(val_texts)})"
+        f"Split datasets: "
+        f"training ({len(train_texts)}), "
+        f"validation ({len(val_texts)})"
     )
     
-    # Створення токенізатора
     tokenizer = SimpleTokenizer(
         vocab_size=config["tokenizer"]["vocab_size"],
         min_freq=config["tokenizer"]["min_freq"],
         special_tokens=config["tokenizer"]["special_tokens"]
     )
     
-    # Навчання токенізатора
     tokenizer.train(train_texts)
     logger.info(
-        f"Навчено токенізатор з розміром словника "
+        f"Trained tokenizer with vocabulary size "
         f"{len(tokenizer.token_to_id)}"
     )
     
-    # Створення завантажувачів
     train_dataloader = create_dataloader(
         texts=train_texts,
         tokenizer=tokenizer,
@@ -182,9 +171,8 @@ def main():
         bos_token_id=tokenizer.token_to_id["<bos>"],
         eos_token_id=tokenizer.token_to_id["<eos>"]
     )
-    logger.info("Створено завантажувачі даних")
+    logger.info("Created data loaders")
     
-    # Створення моделі
     model = TransformerModel(
         vocab_size=len(tokenizer.token_to_id),
         d_model=config["model"]["d_model"],
@@ -194,9 +182,8 @@ def main():
         max_seq_len=config["model"]["max_seq_len"],
         dropout=config["model"]["dropout"]
     )
-    logger.info("Створено модель")
+    logger.info("Created model")
     
-    # Створення тренера
     trainer = Trainer(
         model=model,
         tokenizer=tokenizer,
@@ -214,32 +201,27 @@ def main():
         max_epochs=config["training"]["max_epochs"],
         early_stopping_patience=config["training"]["early_stopping_patience"]
     )
-    logger.info("Створено тренера")
+    logger.info("Created trainer")
     
-    # Відновлення навчання
     if args.resume:
         trainer.load_checkpoint(args.resume)
-        logger.info(f"Відновлено навчання з {args.resume}")
+        logger.info(f"Resumed training from {args.resume}")
     
-    # Навчання
     history = trainer.train()
-    logger.info("Навчання завершено")
+    logger.info("Training completed")
     
-    # Збереження фінальної моделі
     model_path = os.path.join(model_dir, "model.pt")
     torch.save(model.state_dict(), model_path)
-    logger.info(f"Збережено модель в {model_path}")
+    logger.info(f"Saved model to {model_path}")
     
-    # Збереження токенізатора
     tokenizer_path = os.path.join(model_dir, "tokenizer.json")
     tokenizer.save(tokenizer_path)
-    logger.info(f"Збережено токенізатор в {tokenizer_path}")
+    logger.info(f"Saved tokenizer to {tokenizer_path}")
     
-    # Збереження конфігурації
     config_path = os.path.join(model_dir, "config.yaml")
     with open(config_path, "w", encoding="utf-8") as f:
         yaml.dump(config, f, allow_unicode=True)
-    logger.info(f"Збережено конфігурацію в {config_path}")
+    logger.info(f"Saved configuration to {config_path}")
 
 
 if __name__ == "__main__":

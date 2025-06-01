@@ -1,4 +1,3 @@
-# Конфігурація токенізатора
 tokenizer:
   vocab_size: 32000
   min_freq: 2
@@ -8,7 +7,6 @@ tokenizer:
     - "<eos>"
     - "<unk>"
 
-# Конфігурація моделі
 model:
   vocab_size: 32000
   d_model: 768
@@ -18,7 +16,6 @@ model:
   max_seq_len: 512
   dropout: 0.1
 
-# Конфігурація навчання
 training:
   batch_size: 32
   num_epochs: 10
@@ -32,10 +29,8 @@ training:
   logging_steps: 10
   checkpoint_dir: "checkpoints"
 
-# Конфігурація даних
 data:
   val_split: 0.1
 
-# Конфігурація логування
 logging:
   log_dir: "logs" 

@@ -26,7 +26,6 @@ def simple_model_fn():
 @pytest.fixture
 def train_loader():
     """Фікстура для тренувального завантажувача."""
-    # Створення випадкових даних
     inputs = torch.randn(100, 10)
     labels = torch.randint(0, 5, (100,))
     dataset = TensorDataset(inputs, labels)
@@ -36,7 +35,6 @@ def train_loader():
 @pytest.fixture
 def val_loader():
     """Фікстура для валідаційного завантажувача."""
-    # Створення випадкових даних
     inputs = torch.randn(20, 10)
     labels = torch.randint(0, 5, (20,))
     dataset = TensorDataset(inputs, labels)
@@ -81,21 +79,18 @@ def test_hyperparameter_search(
     tmp_path
 ):
     """Тест пошуку гіперпараметрів."""
-    # Створення пошуку
     search = HyperparameterSearch(
         model_fn=simple_model_fn,
         train_loader=train_loader,
         val_loader=val_loader,
         param_space=param_space,
-        n_trials=2,  # Мала кількість для тесту
+        n_trials=2,
         study_name="test_study",
         storage=f"sqlite:///{tmp_path}/test.db"
     )
     
-    # Запуск пошуку
     results = search.run()
     
-    # Перевірка результатів
     assert isinstance(results, dict)
     assert "best_params" in results
     assert "best_value" in results
@@ -106,14 +101,12 @@ def test_hyperparameter_search(
     assert "failed_trials" in results
     assert "all_trials" in results
     
-    # Перевірка параметрів
     best_params = results["best_params"]
     assert "hidden_size" in best_params
     assert "dropout" in best_params
     assert "learning_rate" in best_params
     assert "optimizer" in best_params
     
-    # Перевірка збереження
     save_path = tmp_path / "results.json"
     search.save_results(str(save_path))
     
@@ -132,7 +125,6 @@ def test_grid_search(
     tmp_path
 ):
     """Тест пошуку по сітці."""
-    # Створення пошуку
     search = GridSearch(
         model_fn=simple_model_fn,
         train_loader=train_loader,
@@ -140,24 +132,20 @@ def test_grid_search(
         param_grid=param_grid
     )
     
-    # Запуск пошуку
     results = search.run()
     
-    # Перевірка результатів
     assert isinstance(results, dict)
     assert "best_params" in results
     assert "best_value" in results
     assert "best_metrics" in results
     assert "all_results" in results
     
-    # Перевірка параметрів
     best_params = results["best_params"]
     assert "hidden_size" in best_params
     assert "dropout" in best_params
     assert "learning_rate" in best_params
     assert "optimizer" in best_params
     
-    # Перевірка всіх результатів
     all_results = results["all_results"]
     assert len(all_results) == len(list(ParameterGrid(param_grid)))
     
@@ -165,7 +153,6 @@ def test_grid_search(
         assert "params" in result
         assert "value" in result or "error" in result
     
-    # Перевірка збереження
     save_path = tmp_path / "grid_results.json"
     search.save_results(str(save_path))
     
@@ -183,24 +170,21 @@ def test_hyperparameter_search_error_handling(
     tmp_path
 ):
     """Тест обробки помилок при пошуку гіперпараметрів."""
-    # Створення пошуку з некоректними параметрами
     search = HyperparameterSearch(
         model_fn=simple_model_fn,
         train_loader=train_loader,
         val_loader=val_loader,
         param_space={
-            "hidden_size": [-1],  # Некоректний розмір
-            "dropout": [2.0]  # Некоректна ймовірність
+            "hidden_size": [-1],
+            "dropout": [2.0]
         },
         n_trials=1,
         study_name="test_error_study",
         storage=f"sqlite:///{tmp_path}/test_error.db"
     )
     
-    # Запуск пошуку
     results = search.run()
     
-    # Перевірка, що всі спроби завершились з помилкою
     assert results["completed_trials"] == 0
     assert results["failed_trials"] > 0
 
@@ -212,22 +196,19 @@ def test_grid_search_error_handling(
     tmp_path
 ):
     """Тест обробки помилок при пошуку по сітці."""
-    # Створення пошуку з некоректними параметрами
     search = GridSearch(
         model_fn=simple_model_fn,
         train_loader=train_loader,
         val_loader=val_loader,
         param_grid={
-            "hidden_size": [-1],  # Некоректний розмір
-            "dropout": [2.0]  # Некоректна ймовірність
+            "hidden_size": [-1],
+            "dropout": [2.0]
         }
     )
     
-    # Запуск пошуку
     results = search.run()
     
-    # Перевірка, що всі спроби завершились з помилкою
     assert all("error" in result for result in results["all_results"])
     assert results["best_params"] is None
-    assert results["best_value"] == float("inf")  # Для minimize
+    assert results["best_value"] == float("inf")
     assert results["best_metrics"] is None 

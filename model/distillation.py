@@ -50,7 +50,6 @@ class DistillationLoss(nn.Module):
         Returns:
             Втрати
         """
-        # Втрати дистиляції
         student_log_probs = F.log_softmax(
             student_logits / self.temperature,
             dim=-1
@@ -64,10 +63,8 @@ class DistillationLoss(nn.Module):
             teacher_probs
         ) * (self.temperature ** 2)
         
-        # Втрати навчання
         student_loss = self.ce(student_logits, labels)
         
-        # Комбіновані втрати
         return (
             self.alpha * distillation_loss +
             (1 - self.alpha) * student_loss
@@ -107,11 +104,9 @@ class DistillationTrainer:
             alpha=alpha
         )
         
-        # Перенесення моделей на пристрій
         self.student.to(device)
         self.teacher.to(device)
         
-        # Встановлення режиму вчителя
         self.teacher.eval()
     
     def train_step(
@@ -129,39 +124,31 @@ class DistillationTrainer:
         Returns:
             Словник з метриками
         """
-        # Перенесення даних на пристрій
         inputs = inputs.to(self.device)
         labels = labels.to(self.device)
         
-        # Прямий прохід вчителя
         with torch.no_grad():
             teacher_logits = self.teacher(inputs)
         
-        # Прямий прохід студента
         student_logits = self.student(inputs)
         
-        # Обчислення втрат
         loss = self.criterion(
             student_logits,
             teacher_logits,
             labels
         )
         
-        # Оптимізація
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         
-        # Обчислення метрик
         with torch.no_grad():
             student_probs = F.softmax(student_logits, dim=-1)
             teacher_probs = F.softmax(teacher_logits, dim=-1)
             
-            # Точність
             student_preds = student_probs.argmax(dim=-1)
             accuracy = (student_preds == labels).float().mean()
             
-            # KL розбіжність
             kl_div = F.kl_div(
                 student_probs.log(),
                 teacher_probs,
@@ -195,22 +182,18 @@ class DistillationTrainer:
         
         with torch.no_grad():
             for inputs, labels in dataloader:
-                # Перенесення даних на пристрій
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
                 
-                # Прямі проходи
                 teacher_logits = self.teacher(inputs)
                 student_logits = self.student(inputs)
                 
-                # Обчислення втрат
                 loss = self.criterion(
                     student_logits,
                     teacher_logits,
                     labels
                 )
                 
-                # Обчислення метрик
                 student_probs = F.softmax(student_logits, dim=-1)
                 teacher_probs = F.softmax(teacher_logits, dim=-1)
                 
@@ -223,13 +206,11 @@ class DistillationTrainer:
                     reduction="batchmean"
                 )
                 
-                # Оновлення статистики
                 total_loss += loss.item()
                 total_accuracy += accuracy.item()
                 total_kl_div += kl_div.item()
                 num_batches += 1
         
-        # Обчислення середніх значень
         return {
             "loss": total_loss / num_batches,
             "accuracy": total_accuracy / num_batches,
@@ -295,7 +276,6 @@ class ProgressiveDistillation:
         self.num_steps = num_steps
         self.device = device
         
-        # Параметри для кожного кроку
         self.temperatures = torch.linspace(
             initial_temperature,
             final_temperature,
@@ -307,11 +287,9 @@ class ProgressiveDistillation:
             num_steps
         )
         
-        # Перенесення моделей на пристрій
         self.student.to(device)
         self.teacher.to(device)
         
-        # Встановлення режиму вчителя
         self.teacher.eval()
     
     def get_step_params(self, step: int) -> Tuple[float, float]:
@@ -346,39 +324,31 @@ class ProgressiveDistillation:
         Returns:
             Словник з метриками
         """
-        # Отримання параметрів
         temperature, alpha = self.get_step_params(step)
         
-        # Створення функції втрат
         criterion = DistillationLoss(
             temperature=temperature,
             alpha=alpha
         )
         
-        # Перенесення даних на пристрій
         inputs = inputs.to(self.device)
         labels = labels.to(self.device)
         
-        # Прямий прохід вчителя
         with torch.no_grad():
             teacher_logits = self.teacher(inputs)
         
-        # Прямий прохід студента
         student_logits = self.student(inputs)
         
-        # Обчислення втрат
         loss = criterion(
             student_logits,
             teacher_logits,
             labels
         )
         
-        # Оптимізація
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         
-        # Обчислення метрик
         with torch.no_grad():
             student_probs = F.softmax(student_logits, dim=-1)
             teacher_probs = F.softmax(teacher_logits, dim=-1)
@@ -466,22 +436,18 @@ class ProgressiveDistillation:
         
         with torch.no_grad():
             for inputs, labels in dataloader:
-                # Перенесення даних на пристрій
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
                 
-                # Прямі проходи
                 teacher_logits = self.teacher(inputs)
                 student_logits = self.student(inputs)
                 
-                # Обчислення втрат
                 loss = criterion(
                     student_logits,
                     teacher_logits,
                     labels
                 )
                 
-                # Обчислення метрик
                 student_probs = F.softmax(student_logits, dim=-1)
                 teacher_probs = F.softmax(teacher_logits, dim=-1)
                 
@@ -494,7 +460,6 @@ class ProgressiveDistillation:
                     reduction="batchmean"
                 )
                 
-                # Оновлення статистики
                 total_loss += loss.item()
                 total_accuracy += accuracy.item()
                 total_kl_div += kl_div.item()

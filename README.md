@@ -1,84 +1,84 @@
 # LLM from Scratch
 
-Проєкт реалізації мовної моделі з нуля з оптимізаціями для зменшення використання пам'яті та обчислювального навантаження.
+A project implementing a language model from scratch with optimizations for reduced memory usage and computational load.
 
-## 📋 Опис
+## 📋 Description
 
-Цей проєкт реалізує мовну модель на основі архітектури Transformer з різними оптимізаціями для ефективного використання ресурсів. Основні особливості:
+This project implements a language model based on the Transformer architecture with various optimizations for efficient resource usage. Key features:
 
-- **Оптимізована архітектура**:
-  - Оборотні блоки для економії пам'яті
-  - Спільне зважування параметрів
-  - Низькорозмірні матриці
-  - Ефективний механізм уваги
+- **Optimized Architecture**:
+  - Reversible blocks for memory efficiency
+  - Parameter sharing
+  - Low-rank matrices
+  - Efficient attention mechanism
 
-- **Оптимізації пам'яті**:
-  - Квантизація ваг (4/8/16 біт)
-  - Прунінг неважливих ваг
-  - Зовнішній банк пам'яті
-  - Градієнтна чекпоінт-техніка
+- **Memory Optimizations**:
+  - Weight quantization (4/8/16 bits)
+  - Pruning of unimportant weights
+  - External memory bank
+  - Gradient checkpointing technique
 
-- **Оптимізації навчання**:
-  - Дистиляція знань
-  - LoRA для тонкого налаштування
-  - Прогресивне навчання
-  - Автоматичний пошук гіперпараметрів
+- **Training Optimizations**:
+  - Knowledge distillation
+  - LoRA for fine-tuning
+  - Progressive learning
+  - Automatic hyperparameter search
 
-## 🚀 Встановлення
+## 🚀 Installation
 
-1. Клонуйте репозиторій:
+1. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/llm-from-scratch.git
 cd llm-from-scratch
 ```
 
-2. Створіть віртуальне середовище та встановіть залежності:
+2. Create a virtual environment and install dependencies:
 ```bash
 python -m venv venv
-source venv/bin/activate  # для Linux/Mac
-venv\Scripts\activate     # для Windows
+source venv/bin/activate  # for Linux/Mac
+venv\Scripts\activate     # for Windows
 pip install -r requirements.txt
 ```
 
-## 📦 Структура проєкту
+## 📦 Project Structure
 
 ```
 llm-from-scratch/
-├── configs/                    # Конфігураційні файли
-│   ├── default.yaml           # Базова конфігурація
-│   ├── advanced.yaml          # Розширена конфігурація
-│   └── hyperparameter_search.yaml  # Конфігурація пошуку
-├── model/                     # Модулі моделі
+├── configs/                    # Configuration files
+│   ├── default.yaml           # Base configuration
+│   ├── advanced.yaml          # Advanced configuration
+│   └── hyperparameter_search.yaml  # Search configuration
+├── model/                     # Model modules
 │   ├── __init__.py
-│   ├── model.py              # Базова архітектура
-│   ├── optimizations.py      # Оптимізації
-│   ├── quantization.py       # Квантизація
-│   ├── distillation.py       # Дистиляція
-│   └── hyperparameter_search.py  # Пошук гіперпараметрів
-├── trainer/                   # Модулі навчання
+│   ├── model.py              # Base architecture
+│   ├── optimizations.py      # Optimizations
+│   ├── quantization.py       # Quantization
+│   ├── distillation.py       # Distillation
+│   └── hyperparameter_search.py  # Hyperparameter search
+├── trainer/                   # Training modules
 │   ├── __init__.py
-│   └── trainer.py            # Тренер
-├── utils/                     # Утиліти
+│   └── trainer.py            # Trainer
+├── utils/                     # Utilities
 │   ├── __init__.py
-│   ├── data.py               # Обробка даних
-│   └── metrics.py            # Метрики
-├── tests/                     # Тести
+│   ├── data.py               # Data processing
+│   └── metrics.py            # Metrics
+├── tests/                     # Tests
 │   ├── __init__.py
 │   ├── test_model.py
 │   ├── test_optimizations.py
 │   ├── test_quantization.py
 │   ├── test_distillation.py
 │   └── test_hyperparameter_search.py
-├── train.py                   # Скрипт навчання
-├── generate.py                # Скрипт генерації
-├── search_hyperparameters.py  # Скрипт пошуку гіперпараметрів
-├── requirements.txt           # Залежності
-└── README.md                  # Документація
+├── train.py                   # Training script
+├── generate.py                # Generation script
+├── search_hyperparameters.py  # Hyperparameter search script
+├── requirements.txt           # Dependencies
+└── README.md                  # Documentation
 ```
 
-## 🎯 Використання
+## 🎯 Usage
 
-### Навчання моделі
+### Training the Model
 
 ```bash
 python train.py \
@@ -88,19 +88,19 @@ python train.py \
     --seed 42
 ```
 
-### Генерація тексту
+### Text Generation
 
 ```bash
 python generate.py \
     --model_dir output/model \
-    --prompt "привіт" \
+    --prompt "hello" \
     --strategy top_p \
     --temperature 0.8 \
     --top_p 0.9 \
     --num_return_sequences 3
 ```
 
-### Пошук гіперпараметрів
+### Hyperparameter Search
 
 ```bash
 python search_hyperparameters.py \
@@ -113,49 +113,49 @@ python search_hyperparameters.py \
     --seed 42
 ```
 
-## 🔧 Оптимізації
+## 🔧 Optimizations
 
-### Архітектурні оптимізації
+### Architectural Optimizations
 
-- **Оборотні блоки**: Зменшують використання пам'яті при зворотному поширенні
-- **Спільне зважування**: Зменшують кількість параметрів
-- **Низькорозмірні матриці**: Зменшують розмір моделі
-- **Ефективна увага**: Оптимізований механізм уваги
+- **Reversible Blocks**: Reduce memory usage during backpropagation
+- **Parameter Sharing**: Reduce number of parameters
+- **Low-rank Matrices**: Reduce model size
+- **Efficient Attention**: Optimized attention mechanism
 
-### Оптимізації пам'яті
+### Memory Optimizations
 
-- **Квантизація**: Зменшує розмір моделі (4/8/16 біт)
-- **Прунінг**: Видаляє неважливі ваги
-- **Банк пам'яті**: Зберігає вектори зовні
-- **Чекпоінти**: Економить пам'ять при навчанні
+- **Quantization**: Reduces model size (4/8/16 bits)
+- **Pruning**: Removes unimportant weights
+- **Memory Bank**: Stores vectors externally
+- **Checkpoints**: Saves memory during training
 
-### Оптимізації навчання
+### Training Optimizations
 
-- **Дистиляція**: Перенос знань з більшої моделі
-- **LoRA**: Ефективне тонке налаштування
-- **Прогресивне навчання**: Поступове збільшення складності
-- **Автоматичний пошук**: Оптимізація гіперпараметрів
+- **Distillation**: Knowledge transfer from larger model
+- **LoRA**: Efficient fine-tuning
+- **Progressive Learning**: Gradual complexity increase
+- **Automatic Search**: Hyperparameter optimization
 
-## 📊 Метрики
+## 📊 Metrics
 
-- **Розмір моделі**: Зменшення на 50-80%
-- **Використання пам'яті**: Зменшення на 60-90%
-- **Швидкість інференсу**: Прискорення на 30-50%
-- **Якість**: Збереження 90-95% якості
+- **Model Size**: 50-80% reduction
+- **Memory Usage**: 60-90% reduction
+- **Inference Speed**: 30-50% acceleration
+- **Quality**: 90-95% quality preservation
 
-## 🤝 Внесок
+## 🤝 Contributing
 
-1. Форкніть репозиторій
-2. Створіть гілку для ваших змін
-3. Зробіть коміт з описовими повідомленнями
-4. Відправте pull request
+1. Fork the repository
+2. Create a branch for your changes
+3. Make commits with descriptive messages
+4. Submit a pull request
 
-## 📝 Ліцензія
+## 📝 License
 
-Цей проєкт розповсюджується під ліцензією MIT. Див. файл `LICENSE` для деталей.
+This project is distributed under the MIT license. See the `LICENSE` file for details.
 
-## 🙏 Подяки
+## 🙏 Acknowledgments
 
-- Авторам оригінальної архітектури Transformer
-- Спільноті PyTorch
-- Всім контриб'юторам проєкту 
+- Authors of the original Transformer architecture
+- PyTorch community
+- All project contributors 

@@ -71,18 +71,15 @@ def test_distillation_loss(distillation_loss):
     batch_size = 4
     num_classes = 5
     
-    # Створення випадкових логітів і міток
     student_logits = torch.randn(batch_size, num_classes)
     teacher_logits = torch.randn(batch_size, num_classes)
     labels = torch.randint(0, num_classes, (batch_size,))
     
-    # Обчислення втрат
     loss = distillation_loss(student_logits, teacher_logits, labels)
     
     assert isinstance(loss, torch.Tensor)
-    assert loss.ndim == 0  # Скаляр
+    assert loss.ndim == 0
     
-    # Перевірка різних температур
     loss_t1 = DistillationLoss(temperature=1.0)(
         student_logits,
         teacher_logits,
@@ -95,7 +92,6 @@ def test_distillation_loss(distillation_loss):
     )
     assert not torch.allclose(loss_t1, loss_t2)
     
-    # Перевірка різних ваг
     loss_a1 = DistillationLoss(alpha=0.1)(
         student_logits,
         teacher_logits,
@@ -113,11 +109,9 @@ def test_distillation_trainer(distillation_trainer):
     """Тест тренера дистиляції."""
     batch_size = 4
     
-    # Створення випадкових даних
     inputs = torch.randn(batch_size, 10)
     labels = torch.randint(0, 5, (batch_size,))
     
-    # Крок навчання
     metrics = distillation_trainer.train_step(inputs, labels)
     
     assert isinstance(metrics, dict)
@@ -125,7 +119,6 @@ def test_distillation_trainer(distillation_trainer):
     assert "accuracy" in metrics
     assert "kl_div" in metrics
     
-    # Перевірка оцінки
     dataloader = [(inputs, labels)]
     eval_metrics = distillation_trainer.evaluate(dataloader)
     
@@ -134,20 +127,16 @@ def test_distillation_trainer(distillation_trainer):
     assert "accuracy" in eval_metrics
     assert "kl_div" in eval_metrics
     
-    # Перевірка збереження/завантаження
     distillation_trainer.save_checkpoint("test_checkpoint.pt")
     
-    # Створення нового тренера
     new_trainer = DistillationTrainer(
         student=distillation_trainer.student,
         teacher=distillation_trainer.teacher,
         optimizer=distillation_trainer.optimizer
     )
     
-    # Завантаження чекпоінту
     new_trainer.load_checkpoint("test_checkpoint.pt")
     
-    # Перевірка, що моделі однакові
     for p1, p2 in zip(
         distillation_trainer.student.parameters(),
         new_trainer.student.parameters()
@@ -159,11 +148,9 @@ def test_progressive_distillation(progressive_distillation):
     """Тест прогресивної дистиляції."""
     batch_size = 4
     
-    # Створення випадкових даних
     inputs = torch.randn(batch_size, 10)
     labels = torch.randint(0, 5, (batch_size,))
     
-    # Перевірка параметрів для різних кроків
     for step in range(progressive_distillation.num_steps):
         temperature, alpha = progressive_distillation.get_step_params(step)
         assert isinstance(temperature, float)
@@ -171,7 +158,6 @@ def test_progressive_distillation(progressive_distillation):
         assert 0 < temperature <= 4.0
         assert 0.5 <= alpha <= 0.9
     
-    # Крок навчання
     metrics = progressive_distillation.train_step(inputs, labels, step=0)
     
     assert isinstance(metrics, dict)
@@ -181,7 +167,6 @@ def test_progressive_distillation(progressive_distillation):
     assert "temperature" in metrics
     assert "alpha" in metrics
     
-    # Перевірка навчання епохи
     dataloader = [(inputs, labels)]
     epoch_metrics = progressive_distillation.train_epoch(dataloader, step=0)
     
@@ -192,7 +177,6 @@ def test_progressive_distillation(progressive_distillation):
     assert "temperature" in epoch_metrics
     assert "alpha" in epoch_metrics
     
-    # Перевірка оцінки
     eval_metrics = progressive_distillation.evaluate(dataloader, step=0)
     
     assert isinstance(eval_metrics, dict)
@@ -202,22 +186,18 @@ def test_progressive_distillation(progressive_distillation):
     assert "temperature" in eval_metrics
     assert "alpha" in eval_metrics
     
-    # Перевірка збереження/завантаження
     step = 1
     progressive_distillation.save_checkpoint("test_checkpoint.pt", step)
     
-    # Створення нового тренера
     new_trainer = ProgressiveDistillation(
         student=progressive_distillation.student,
         teacher=progressive_distillation.teacher,
         optimizer=progressive_distillation.optimizer
     )
     
-    # Завантаження чекпоінту
     loaded_step = new_trainer.load_checkpoint("test_checkpoint.pt")
     assert loaded_step == step
     
-    # Перевірка, що моделі однакові
     for p1, p2 in zip(
         progressive_distillation.student.parameters(),
         new_trainer.student.parameters()

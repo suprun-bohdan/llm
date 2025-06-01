@@ -1,5 +1,5 @@
 """
-Модуль для роботи з конфігурацією моделі.
+Module for working with model configuration.
 """
 import os
 import yaml
@@ -9,7 +9,7 @@ from typing import List, Optional, Dict, Any
 
 @dataclass
 class ModelConfig:
-    """Конфігурація моделі."""
+    """Model configuration."""
     vocab_size: int
     d_model: int
     n_heads: int
@@ -21,7 +21,7 @@ class ModelConfig:
 
 @dataclass
 class TokenizerConfig:
-    """Конфігурація токенізатора."""
+    """Tokenizer configuration."""
     vocab_size: int
     min_freq: int
     special_tokens: List[str]
@@ -29,7 +29,7 @@ class TokenizerConfig:
 
 @dataclass
 class TrainingConfig:
-    """Конфігурація навчання."""
+    """Training configuration."""
     batch_size: int
     num_epochs: int
     learning_rate: float
@@ -45,7 +45,7 @@ class TrainingConfig:
 
 @dataclass
 class GenerationConfig:
-    """Конфігурація генерації."""
+    """Generation configuration."""
     max_len: int
     temperature: float
     top_k: int
@@ -55,19 +55,19 @@ class GenerationConfig:
 
 @dataclass
 class DataConfig:
-    """Конфігурація даних."""
+    """Data configuration."""
     val_split: float
 
 
 @dataclass
 class LoggingConfig:
-    """Конфігурація логування."""
+    """Logging configuration."""
     log_dir: str
 
 
 @dataclass
 class Config:
-    """Загальна конфігурація."""
+    """General configuration."""
     tokenizer: TokenizerConfig
     model: ModelConfig
     training: TrainingConfig
@@ -78,13 +78,13 @@ class Config:
     @classmethod
     def from_yaml(cls, path: str) -> "Config":
         """
-        Завантаження конфігурації з YAML.
+        Load configuration from YAML.
 
         Args:
-            path: Шлях до файлу
+            path: Path to file
 
         Returns:
-            Конфігурація
+            Configuration
         """
         with open(path, "r", encoding="utf-8") as f:
             config_dict = yaml.safe_load(f)
@@ -100,10 +100,10 @@ class Config:
 
     def to_yaml(self, path: str) -> None:
         """
-        Збереження конфігурації в YAML.
+        Save configuration to YAML.
 
         Args:
-            path: Шлях до файлу
+            path: Path to file
         """
         config_dict = {
             "tokenizer": self.tokenizer.__dict__,
