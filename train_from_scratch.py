@@ -44,7 +44,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class JSONLDataset(Dataset):
-    """Dataset for JSONL files."""
+    """Dataset for JSONL files with 'prompt' and 'response'."""
     
     def __init__(self, file_path: str, tokenizer: BPETokenizer, max_length: int = 512):
         self.file_path = Path(file_path)
@@ -57,8 +57,8 @@ class JSONLDataset(Dataset):
             for line in f:
                 try:
                     example = json.loads(line.strip())
-                    if "text" in example:
-                        self.examples.append(example["text"])
+                    if "prompt" in example and "response" in example:
+                        self.examples.append((example["prompt"], example["response"]))
                 except json.JSONDecodeError:
                     continue
     
@@ -66,17 +66,21 @@ class JSONLDataset(Dataset):
         return len(self.examples)
     
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        text = self.examples[idx]
-        encoded = self.tokenizer.encode(text)
+        prompt, response = self.examples[idx]
+        encoded_prompt = self.tokenizer.encode(prompt)
+        encoded_response = self.tokenizer.encode(response)
         
         # Truncate if needed
-        if len(encoded["input_ids"]) > self.max_length:
-            encoded["input_ids"] = encoded["input_ids"][:self.max_length]
-            encoded["attention_mask"] = encoded["attention_mask"][:self.max_length]
+        if len(encoded_prompt["input_ids"]) > self.max_length:
+            encoded_prompt["input_ids"] = encoded_prompt["input_ids"][:self.max_length]
+            encoded_prompt["attention_mask"] = encoded_prompt["attention_mask"][:self.max_length]
+        if len(encoded_response["input_ids"]) > self.max_length:
+            encoded_response["input_ids"] = encoded_response["input_ids"][:self.max_length]
+            encoded_response["attention_mask"] = encoded_response["attention_mask"][:self.max_length]
         
         return {
-            "input_ids": torch.tensor(encoded["input_ids"]),
-            "attention_mask": torch.tensor(encoded["attention_mask"])
+            "input_ids": torch.tensor(encoded_prompt["input_ids"] + encoded_response["input_ids"]),
+            "attention_mask": torch.tensor(encoded_prompt["attention_mask"] + encoded_response["attention_mask"])
         }
 
 
@@ -110,24 +114,25 @@ class Trainer:
         self.logger = logging.getLogger(__name__)
         
         # Setup optimizer and scheduler
+        assert isinstance(config["optimizer"]["learning_rate"], float), "Learning rate should be a float"
         self.optimizer = AdamW(
             model.parameters(),
-            lr=config["training"]["learning_rate"],
-            weight_decay=config["training"]["weight_decay"]
+            lr=config["optimizer"]["learning_rate"],
+            weight_decay=config["optimizer"]["weight_decay"]
         )
         
         # Calculate total steps
-        self.total_steps = len(train_dataset) // config["training"]["batch_size"] * config["training"]["epochs"]
+        self.total_steps = len(train_dataset) // config["batch_size"] * config["epochs"]
         
         # Setup scheduler
         self.scheduler = get_linear_schedule_with_warmup(
             self.optimizer,
-            num_warmup_steps=config["training"]["warmup_steps"],
+            num_warmup_steps=config["optimizer"]["warmup_steps"],
             num_training_steps=self.total_steps
         )
         
         # Setup mixed precision
-        self.scaler = GradScaler() if config["training"]["use_fp16"] else None
+        self.scaler = GradScaler() if config["student"]["mixed_precision"] else None
         
         # Setup wandb
         if use_wandb:
@@ -228,9 +233,9 @@ class Trainer:
         # Create dataloaders
         train_dataloader = DataLoader(
             self.train_dataset,
-            batch_size=self.config["training"]["batch_size"],
+            batch_size=self.config["batch_size"],
             shuffle=True,
-            num_workers=self.config["training"]["num_workers"],
+            num_workers=self.config.get("num_workers", 4),
             pin_memory=True
         )
         
@@ -238,16 +243,16 @@ class Trainer:
         if self.val_dataset:
             val_dataloader = DataLoader(
                 self.val_dataset,
-                batch_size=self.config["training"]["batch_size"],
+                batch_size=self.config["batch_size"],
                 shuffle=False,
-                num_workers=self.config["training"]["num_workers"],
+                num_workers=self.config.get("num_workers", 4),
                 pin_memory=True
             )
         
         # Training loop
         best_val_loss = float("inf")
-        for epoch in range(self.config["training"]["epochs"]):
-            self.logger.info(f"Epoch {epoch + 1}/{self.config['training']['epochs']}")
+        for epoch in range(self.config["epochs"]):
+            self.logger.info(f"Epoch {epoch + 1}/{self.config['epochs']}")
             
             # Train
             train_metrics = self.train_epoch(train_dataloader)
@@ -301,7 +306,9 @@ class Trainer:
 
 def load_config(config_path: str) -> Dict[str, Any]:
     with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        config = yaml.safe_load(f)
+        config["optimizer"]["learning_rate"] = float(config["optimizer"]["learning_rate"])
+        return config
 
 def train_epoch(
     model: torch.nn.Module,
@@ -396,7 +403,7 @@ def main():
         
         # Create tokenizer
         tokenizer = BPETokenizer()
-        tokenizer.train(args.dataset, vocab_size=config["tokenizer"]["vocab_size"])
+        tokenizer.train([args.dataset])
         
         # Create dataset
         dataset = JSONLDataset(args.dataset, tokenizer, config["student"]["max_seq_len"])
@@ -412,7 +419,7 @@ def main():
         
         # Create model
         model = TransformerModel(
-            vocab_size=len(tokenizer.token_to_id),
+            vocab_size=len(tokenizer.tokenizer.get_vocab()),
             d_model=config["student"]["d_model"],
             n_heads=config["student"]["n_heads"],
             n_layers=config["student"]["n_layers"],
